@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.2'
       - run: npm run verify
       - run: docker build -t interactive-evidence-presenter:test .
       - run: |
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.2'
       - name: Install pinned test dependency
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Install Chromium for Playwright
