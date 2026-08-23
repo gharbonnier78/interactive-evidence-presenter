@@ -1,0 +1,69 @@
+{
+  "testId": "E2E-FIGURE-004",
+  "root": {
+    "name": "test.e2e.figure_exploration",
+    "attributes": {
+      "test.framework": "playwright",
+      "test.id": "E2E-FIGURE-004"
+    }
+  },
+  "allowUnexpectedSpans": false,
+  "spans": [
+    {
+      "name": "GET /",
+      "parent": "$root",
+      "kind": 2,
+      "attributes": {
+        "http.request.method": "GET",
+        "url.path": "/",
+        "http.response.status_code": 200
+      }
+    },
+    {
+      "name": "iep.presenter.open",
+      "parent": "$root",
+      "attributes": { "iep.slide.id": "mission" }
+    },
+    {
+      "name": "iep.evidence.render",
+      "parent": "$root",
+      "attributes": {
+        "iep.claim.id": "C-NI-001",
+        "iep.claim.status": "NOT_DEMONSTRATED"
+      }
+    },
+    {
+      "name": "iep.semantic.resolve",
+      "parent": "$root",
+      "attributes": {
+        "iep.selection.type": "figure-region",
+        "iep.selection.text": "PCA 128D",
+        "iep.slide.id": "mission",
+        "iep.semantic.status": "resolved",
+        "iep.semantic.id": "concept:pca",
+        "iep.resolver.source": "diderot",
+        "iep.resolver.transport": "api"
+      }
+    },
+    {
+      "name": "iep.explanation.render",
+      "parent": "$root",
+      "attributes": {
+        "iep.semantic.id": "concept:pca",
+        "iep.explanation.depth": "intuition",
+        "iep.resolver.source": "diderot"
+      }
+    }
+  ],
+  "logs": [
+    { "eventName": "iep.presenter.opened", "span": "iep.presenter.open", "severityNumber": 9 },
+    { "eventName": "iep.evidence.rendered", "span": "iep.evidence.render", "severityNumber": 9 },
+    { "eventName": "iep.semantic.resolved", "span": "iep.semantic.resolve", "severityNumber": 9 },
+    { "eventName": "iep.explanation.rendered", "span": "iep.explanation.render", "severityNumber": 9 }
+  ],
+  "metrics": [
+    { "name": "iep.interaction.duration", "span": "iep.semantic.resolve", "unit": "s", "max": 1 },
+    { "name": "iep.interaction.duration", "span": "iep.explanation.render", "unit": "s", "max": 1 }
+  ],
+  "forbidLogsAtOrAboveSeverity": 17
+}
