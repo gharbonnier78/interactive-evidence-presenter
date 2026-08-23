@@ -1,0 +1,31 @@
+@startuml
+start
+:Open Interactive Evidence Presenter;
+note right
+<<span: iep.presenter.open>>
+iep.slide.id = mission
+end note
+
+:Render canonical Study 0 claim;
+note right
+<<span: iep.evidence.render>>
+iep.claim.id = C-NI-001
+iep.claim.status = NOT_DEMONSTRATED
+end note
+
+:Navigate Next;
+note right
+<<span: iep.slide.navigate>>
+iep.slide.from = mission
+iep.slide.to = study-0
+iep.navigation.action = next
+end note
+
+:Open PCA concept;
+note right
+<<span: iep.concept.open>>
+iep.concept.id = pca
+iep.concept.name = PCA
+end note
+stop
+@enduml

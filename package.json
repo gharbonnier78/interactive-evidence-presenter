@@ -7,7 +7,13 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:codegen": "playwright codegen http://127.0.0.1:8080",
     "check": "node scripts/check.mjs",
     "verify": "npm run check && npm test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
   }
 }

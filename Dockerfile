@@ -1,6 +1,11 @@
-FROM node:22.16.0-alpine
+FROM node:22.23.2-alpine3.24
 WORKDIR /app
-COPY --chown=node:node package.json server.mjs ./
+RUN rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/lib/node_modules/corepack \
+           /opt/yarn-v1.22.22 \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx \
+             /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
+COPY --chown=node:node package.json server.mjs telemetry-store.mjs ./
 COPY --chown=node:node app ./app
 ENV NODE_ENV=production PORT=8080
 USER node

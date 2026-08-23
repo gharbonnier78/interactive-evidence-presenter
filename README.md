@@ -2,7 +2,7 @@
 
 Turn scientific results into interactive, explainable, multimodal presentations backed by evidence.
 
-> The trailing `.` is part of the GitHub repository name: `gharbonnier78/interactive-evidence-presenter.`
+Canonical repository: `gharbonnier78/interactive-evidence-presenter`.
 
 ## MVP v0.1
 
@@ -27,17 +27,31 @@ npm start
 # open http://localhost:8080
 ```
 
+For the browser reference suite:
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:e2e
+npm run test:e2e:report
+```
+
+`npm run test:e2e:codegen` opens Playwright Codegen against a locally running presenter. Codegen output is treated as a candidate artifact to review, not as automatically trusted coverage.
+
 ## Engineering care
 
 This repository uses the **MVP** engineering-care profile from `scientific-research-harness`:
 
 - system/software architecture: `docs/ARCHITECTURE.md`;
 - code decomposition/change rules: `docs/CODE_STRUCTURE.md`;
+- test-generation comparison contract: `docs/TEST_GENERATION_LAB.md`;
 - security posture and residual risks: `docs/SECURITY.md`;
 - Google Cloud deployment contract: `docs/DEPLOYMENT.md`;
 - harness adoption and gates: `harness-adoption.yaml`.
 
-Local verification runs focused unit tests plus static policy checks. GitHub Actions adds container smoke tests, CodeQL, gitleaks and Trivy filesystem/container scans.
+Local verification runs focused unit tests plus static policy checks. GitHub Actions adds container smoke tests, a blocking Playwright Chromium reference suite with HTML/JSON report artifacts, CodeQL, gitleaks and Trivy filesystem/container scans.
+
+Allure and OpenTelemetry are deliberately deferred until the comparison/reporting questions justify those extra layers; the current CI preserves structured Playwright results so they can be promoted later without losing provenance.
 
 ## Security boundary
 
