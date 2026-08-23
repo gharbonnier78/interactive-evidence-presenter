@@ -6,12 +6,15 @@ Canonical repository: `gharbonnier78/interactive-evidence-presenter`.
 
 ## MVP v0.2 review
 
-The bounded MVP now demonstrates two reviewable product paths on real Study 0 evidence:
+The bounded MVP now demonstrates multiple reviewable product paths on real Study 0 evidence:
 
 - interactive presentation navigation;
 - selection of visible text as a semantic query, not only predefined buttons;
+- known-text resolution (`PCA`) through the Diderot/local tier;
+- negative selection proof: an unrelated selected word remains unresolved even when nearby context contains known concepts;
 - click selection of Study 0 chart regions through the same semantic resolver contract;
 - Diderot-first bounded knowledge resolution with explicit provenance and explicit internet fallback when unresolved;
+- explicit separation between intentional `local-static-preview` and real `api-error` behavior;
 - a deterministic, evidence-bounded “Emma” assistant;
 - presenter webcam tile kept local to the browser;
 - optional MediaPipe gesture control: Thumb Up → next, Victory → previous, Open Palm → cancel;
@@ -32,7 +35,7 @@ npm start
 # open http://localhost:8080
 ```
 
-Try selecting the visible text `PCA` directly in the presentation surface. The semantic panel should identify the Diderot/local tier. Select an unknown word to see the explicit internet-fallback boundary. Click one of the chart bars to send a figure-region selection through the same resolver.
+Try selecting the visible text `PCA` directly in the presentation surface. The semantic panel should identify the Diderot/local tier. Select an unknown word such as `presentation`: it must stay unresolved rather than inherit a nearby PCA/FNMR concept. Click the PCA chart bar to send a `figure-region` selection through the same resolver.
 
 The service contracts are documented in `docs/SERVICE_APIS.md`.
 
@@ -47,6 +50,8 @@ npm run test:e2e:report
 ```
 
 The reference UAT lane keeps planned screenshots even when tests pass. It also retains raw OTEL evidence bundles, machine-readable validation results and a human-readable expected-versus-actual comparison. The UAT report generator turns those artifacts into HTML and PDF review books.
+
+The semantic UAT has three bounded subpaths: `UC-002A` known text, `UC-002B` unknown text/fallback, and `UC-002C` figure-region selection. Separate regression tests also force an API 500 and verify that it surfaces as `API error`, and exercise 400/413/415 semantic API guards.
 
 `npm run test:e2e:codegen` opens Playwright Codegen against a locally running presenter. Codegen output is treated as a candidate artifact to review, not as automatically trusted coverage.
 
@@ -72,6 +77,6 @@ Allure remains deferred until cross-framework/campaign history justifies it. Ope
 
 The camera is user-initiated and is not posted to the server. MediaPipe processing is performed in the browser. TypeGPU `0.12.1` and MediaPipe Tasks Vision `1.0.1` are version-pinned browser dependencies. Their current CDN delivery is an explicitly recorded MVP supply-chain risk to remove before a stronger production profile.
 
-The current Diderot resolver is a bounded local projection, not a claim that the complete wiki is already live-indexed at runtime. Unknown selections are not hallucinated into local knowledge: the UI exposes an explicit web fallback instead.
+The current Diderot resolver is a bounded local projection, not a claim that the complete wiki is already live-indexed at runtime. Context is disambiguation-only and cannot manufacture a semantic match. Unknown selections are not hallucinated into local knowledge: the UI exposes an explicit web fallback instead.
 
 Cloud deployment is designed for keyless/OIDC authentication rather than a long-lived cloud credential.
