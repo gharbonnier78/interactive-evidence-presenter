@@ -3,7 +3,7 @@ project: interactive-evidence-presenter
 profile: MVP
 harness:
   repository: gharbonnier78/scientific-research-harness
-  ref: 444ec2cba7f24fee7333804601cd0c86f32ef27b
+  ref: 422e08f3d6483ca11fa5a4767cffa99ce386bde5
 authoritative_sources:
   - repository: gharbonnier78/siamese-embedding-compression-lab
     artifact: STUDY0_FINAL_REPORT.md
@@ -12,14 +12,19 @@ local_extensions:
   - docs/ARCHITECTURE.md
   - docs/SECURITY.md
   - docs/CODE_STRUCTURE.md
+  - docs/TELEMETRY_EVIDENCE.md
+  - e2e/contracts/E2E-REFERENCE-001.json
 gates:
   - id: MVP-BUILD
     criterion: static checks and unit tests pass
   - id: MVP-SECURITY
     criterion: CodeQL, secret scan and Trivy filesystem/container checks have no unresolved high/critical finding
+  - id: MVP-E2E-TELEMETRY
+    criterion: Playwright external assertions pass and the predeclared E2E telemetry contract passes expected-versus-actual span, log and metric/exemplar validation from the root SpanId evidence query
   - id: MVP-DEPLOY
-    criterion: Cloud Run health endpoint responds and browser smoke test succeeds
+    criterion: configured deployment health endpoint responds and browser smoke test succeeds
 prohibited_inferences:
   - The presenter UI does not upgrade an experimental claim.
   - A generated explanation is not canonical evidence.
   - A TypeGPU capability probe is not evidence of end-to-end performance improvement.
+  - Passing runtime telemetry evidence does not convert runtime telemetry into scientific evidence.
