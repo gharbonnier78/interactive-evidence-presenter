@@ -1,0 +1,40 @@
+name: Security checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * 1'
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+  trivy-fs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+  trivy-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker build -t iep:${{ github.sha }} .
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: iep:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
