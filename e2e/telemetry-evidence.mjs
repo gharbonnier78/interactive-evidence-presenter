@@ -15,7 +15,7 @@ function attrs(values) {
   return Object.entries(values).map(([key, value]) => ({ key, value: otlpValue(value) }));
 }
 
-export function rootSpanEnvelope({ traceId, rootSpanId, startTimeUnixNano, endTimeUnixNano, testId }) {
+export function rootSpanEnvelope({ traceId, rootSpanId, startTimeUnixNano, endTimeUnixNano, testId, rootName = 'test.e2e.reference_evidence_navigation' }) {
   return {
     resourceSpans: [{
       resource: { attributes: attrs({ 'service.name': 'playwright.reference-test' }) },
@@ -24,7 +24,7 @@ export function rootSpanEnvelope({ traceId, rootSpanId, startTimeUnixNano, endTi
         spans: [{
           traceId,
           spanId: rootSpanId,
-          name: 'test.e2e.reference_evidence_navigation',
+          name: rootName,
           kind: 1,
           startTimeUnixNano,
           endTimeUnixNano,
