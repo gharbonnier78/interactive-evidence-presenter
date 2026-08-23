@@ -10,10 +10,32 @@ test('resolves PCA from selected text through the Diderot tier', () => {
   assert.equal(result.fallback.required, false);
 });
 
-test('uses context when the selected text is a short route label', () => {
+test('context may disambiguate but cannot create a semantic match', () => {
+  const result = resolveSemanticSelection({
+    text: 'presentation',
+    context: 'A presentation with buttons PCA FNMR UCB Bootstrap Siamese.',
+    elementType: 'text'
+  });
+  assert.equal(result.status, 'unresolved');
+  assert.equal(result.semantic, null);
+  assert.equal(result.fallback.nextTier, 'internet');
+});
+
+test('generic route text does not resolve merely because PCA appears in context', () => {
   const result = resolveSemanticSelection({ text: '128D route', context: 'The PCA 128D route is selected.', elementType: 'figure-region' });
+  assert.equal(result.status, 'unresolved');
+});
+
+test('whitelisted figure semantic hint resolves the intended chart region', () => {
+  const result = resolveSemanticSelection({
+    text: '128D route',
+    context: 'Study 0 corrected UCB route.',
+    elementType: 'figure-region',
+    semanticHint: 'study0.route.1'
+  });
   assert.equal(result.status, 'resolved');
   assert.equal(result.semantic.conceptId, 'pca');
+  assert.equal(result.semantic.matchKind, 'semantic-hint');
 });
 
 test('returns an explicit internet fallback for unknown selections', () => {
@@ -34,9 +56,10 @@ test('renders bounded intuition and detail without changing provenance', () => {
   assert.equal(detail.claimId, 'C-NI-001');
 });
 
-test('semantic manifest declares resolver priority and known concepts', () => {
+test('semantic manifest declares the implemented resolver priority and context policy', () => {
   const manifest = semanticManifest();
-  assert.deepEqual(manifest.resolverPriority, ['diderot', 'project-evidence', 'internet-fallback']);
+  assert.deepEqual(manifest.resolverPriority, ['diderot', 'internet-fallback']);
+  assert.equal(manifest.contextPolicy, 'disambiguation-only');
   assert.ok(manifest.concepts.some((concept) => concept.conceptId === 'pca'));
   assert.equal(getDiderotConcept('missing'), null);
 });
