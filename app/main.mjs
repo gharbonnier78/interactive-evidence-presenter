@@ -1,4 +1,5 @@
 import { SLIDES, STUDY, CONCEPTS, parseCommand, boundedAnswer } from './core.mjs';
+import { renderBoundedExplanation, resolveSemanticSelection } from './semantic-core.mjs';
 import { normalizeOnGpu } from './typegpu.mjs';
 import { startGestureRecognition } from './mediapipe.mjs';
 import { createTelemetry } from './telemetry.mjs';
@@ -6,9 +7,11 @@ import { createTelemetry } from './telemetry.mjs';
 const telemetry = createTelemetry();
 const $ = (selector) => document.querySelector(selector);
 const els = {
+  stage: $('#presentation-stage'),
   eyebrow: $('#eyebrow'), title: $('#slide-title'), body: $('#slide-body'), counter: $('#counter'),
   chart: $('#result-chart'), chartBackend: $('#chart-backend'), evidence: $('#evidence-copy'),
   conceptTitle: $('#concept-title'), conceptCopy: $('#concept-copy'), emma: $('#emma-copy'),
+  selectionText: $('#selection-text'), selectionSource: $('#selection-source'), externalFallback: $('#external-fallback'),
   command: $('#command'), video: $('#presenter-video'), cameraStatus: $('#camera-status'),
   gestureStatus: $('#gesture-status'), gestureButton: $('#gesture-button'), micButton: $('#mic-button')
 };
@@ -16,6 +19,8 @@ const els = {
 let slideIndex = 0;
 let stopGestures = null;
 let mediaStream = null;
+let lastSemanticQuery = null;
+let lastSemanticResolution = null;
 
 function setText(node, value) { node.textContent = value; }
 
@@ -58,6 +63,10 @@ function showConcept(id) {
   });
   setText(els.conceptTitle, concept.title);
   setText(els.conceptCopy, concept.deep);
+  setText(els.selectionText, `Explicit semantic concept · ${concept.title}`);
+  setText(els.selectionSource, 'Diderot/local');
+  els.selectionSource.className = 'source-pill diderot';
+  els.externalFallback.hidden = true;
   setText(els.emma, concept.short);
   span.end({ eventName: 'iep.concept.opened', eventBody: `Concept ${concept.title} opened` });
 }
@@ -120,6 +129,138 @@ async function initChart() {
   if (result.reason) els.chartBackend.title = result.reason;
 }
 
+async function resolveThroughService(query, depth = 'intuition') {
+  try {
+    const response = await fetch('/api/explanations/v1/render', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...query, depth }),
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error(`resolver API ${response.status}`);
+    const body = await response.json();
+    return { ...body, transport: 'api' };
+  } catch {
+    const resolution = resolveSemanticSelection(query);
+    return {
+      resolution,
+      explanation: renderBoundedExplanation(resolution, depth),
+      transport: 'local-static-preview'
+    };
+  }
+}
+
+function renderSemanticResult(result, selectedText) {
+  const { resolution, explanation, transport } = result;
+  lastSemanticResolution = resolution;
+  setText(els.selectionText, `Selected: “${selectedText}”`);
+
+  if (resolution.status === 'resolved') {
+    setText(els.conceptTitle, explanation.title);
+    setText(els.conceptCopy, explanation.text);
+    setText(els.selectionSource, `Diderot · ${transport}`);
+    els.selectionSource.className = 'source-pill diderot';
+    els.externalFallback.hidden = true;
+    return;
+  }
+
+  setText(els.conceptTitle, selectedText || 'Unresolved selection');
+  setText(els.conceptCopy, explanation.text);
+  setText(els.selectionSource, 'Internet fallback');
+  els.selectionSource.className = 'source-pill internet';
+  if (resolution.fallback?.webSearchUrl) {
+    els.externalFallback.href = resolution.fallback.webSearchUrl;
+    els.externalFallback.hidden = false;
+  } else {
+    els.externalFallback.hidden = true;
+  }
+}
+
+async function resolveInteractiveSelection(query, depth = 'intuition') {
+  const selectedText = String(query.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 180);
+  if (selectedText.length < 2) return null;
+  lastSemanticQuery = { ...query, text: selectedText };
+
+  const resolveSpan = telemetry.startSpan('iep.semantic.resolve', {
+    'iep.selection.type': query.elementType ?? 'text',
+    'iep.selection.text': selectedText,
+    'iep.slide.id': query.slideId ?? SLIDES[slideIndex].id
+  });
+  const result = await resolveThroughService(lastSemanticQuery, depth);
+  resolveSpan.end({
+    eventName: 'iep.semantic.resolved',
+    eventBody: `Semantic selection ${selectedText}`,
+    extraAttributes: {
+      'iep.semantic.status': result.resolution.status,
+      'iep.semantic.id': result.resolution.semantic?.id ?? 'unresolved',
+      'iep.resolver.source': result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none',
+      'iep.resolver.transport': result.transport
+    }
+  });
+
+  const explanationSpan = telemetry.startSpan('iep.explanation.render', {
+    'iep.semantic.id': result.resolution.semantic?.id ?? 'unresolved',
+    'iep.explanation.depth': depth,
+    'iep.resolver.source': result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none'
+  });
+  renderSemanticResult(result, selectedText);
+  explanationSpan.end({ eventName: 'iep.explanation.rendered', eventBody: `Explanation rendered for ${selectedText}` });
+  return result;
+}
+
+function selectionContext(selection) {
+  if (!selection?.rangeCount) return '';
+  const range = selection.getRangeAt(0);
+  const node = range.commonAncestorContainer;
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  if (!element || !els.stage.contains(element)) return '';
+  const container = element.closest('.slide-copy,.chart-card') ?? element;
+  return String(container.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
+async function handleTextSelection() {
+  const selection = window.getSelection();
+  const text = String(selection?.toString() ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length < 2 || text.length > 180) return;
+  const context = selectionContext(selection);
+  if (!context) return;
+  await resolveInteractiveSelection({
+    text,
+    context,
+    slideId: SLIDES[slideIndex].id,
+    elementType: 'text'
+  });
+}
+
+async function handleChartPick(event) {
+  const rect = els.chart.getBoundingClientRect();
+  const y = event.clientY - rect.top;
+  const top = 36;
+  const row = 58;
+  const index = STUDY.ucb.findIndex((_, i) => y >= top + i * row - 8 && y <= top + i * row + 30);
+  if (index < 0) return;
+  const route = STUDY.ucb[index];
+  await resolveInteractiveSelection({
+    text: route.route,
+    context: `Study 0 corrected UCB route ${route.route}, high ${route.high}, non-inferiority margin ${STUDY.nonInferiorityMargin}.`,
+    slideId: SLIDES[slideIndex].id,
+    elementType: 'figure-region',
+    semanticHint: `study0.route.${index}`
+  });
+}
+
+async function renderLastDepth(depth) {
+  if (!lastSemanticQuery || !lastSemanticResolution) return;
+  const result = await resolveThroughService(lastSemanticQuery, depth);
+  const span = telemetry.startSpan('iep.explanation.render', {
+    'iep.semantic.id': result.resolution.semantic?.id ?? 'unresolved',
+    'iep.explanation.depth': depth,
+    'iep.resolver.source': result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none'
+  });
+  renderSemanticResult(result, lastSemanticQuery.text);
+  span.end({ eventName: 'iep.explanation.rendered', eventBody: `Explanation depth ${depth}` });
+}
+
 async function startCamera() {
   if (mediaStream) return;
   try {
@@ -178,6 +319,9 @@ function bind() {
   els.micButton.addEventListener('click', startVoice);
   $('#ask-form').addEventListener('submit', (event) => { event.preventDefault(); execute(els.command.value); });
   document.querySelectorAll('[data-concept]').forEach((button) => button.addEventListener('click', () => showConcept(button.dataset.concept)));
+  document.querySelectorAll('[data-depth]').forEach((button) => button.addEventListener('click', () => renderLastDepth(button.dataset.depth)));
+  els.stage.addEventListener('mouseup', () => setTimeout(handleTextSelection, 0));
+  els.chart.addEventListener('click', handleChartPick);
   window.addEventListener('resize', () => initChart());
   window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight') next();
