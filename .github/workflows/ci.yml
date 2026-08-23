@@ -34,7 +34,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run reference Playwright suite
         run: npm run test:e2e
-      - name: Upload Playwright report and evidence
+      - name: Build UAT evidence book
+        if: always()
+        run: npm run uat:report
+      - name: Upload Playwright, UAT and OTEL evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -42,5 +45,6 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            uat-report/
           if-no-files-found: error
           retention-days: 90
