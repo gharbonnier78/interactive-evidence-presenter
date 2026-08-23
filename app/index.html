@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive evidence-driven scientific presentation MVP">
+  <title>Interactive Evidence Presenter</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><strong>Diderot / Evidence Presenter</strong><span class="muted"> · MVP v0.1</span></div>
+    <div class="status-row"><span class="dot"></span><span id="counter">1 / 3</span></div>
+  </header>
+
+  <main class="shell">
+    <section class="stage" aria-labelledby="slide-title">
+      <div class="slide-copy">
+        <p class="eyebrow" id="eyebrow"></p>
+        <h1 id="slide-title"></h1>
+        <p class="lead" id="slide-body"></p>
+        <div class="concepts" aria-label="Semantic concepts">
+          <button data-concept="pca">PCA</button><button data-concept="fnmr">FNMR</button>
+          <button data-concept="ucb">97.5% UCB</button><button data-concept="bootstrap">Bootstrap</button>
+          <button data-concept="siamese">Siamese</button>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-head"><div><span class="kicker">Study 0</span><h2>Corrected UCB by route</h2></div><span class="badge" id="chart-backend">initializing…</span></div>
+        <canvas id="result-chart" role="img" aria-label="Upper confidence bounds for Random, PCA and Siamese 128D routes"></canvas>
+        <p class="caption">Bars use the corrected 97.5% UCB high values. The 0.03 line is the frozen non-inferiority margin.</p>
+      </div>
+
+      <div class="controls"><button id="previous">← Previous</button><button id="next" class="primary">Next →</button></div>
+    </section>
+
+    <aside class="side">
+      <section class="video-card">
+        <div class="video-wrap"><video id="presenter-video" muted playsinline></video><div class="video-label">Presenter</div></div>
+        <div class="video-actions"><button id="camera-button">Start camera</button><button id="gesture-button">Enable gestures</button></div>
+        <p class="tiny"><span id="camera-status">camera off</span> · <span id="gesture-status">gestures off</span></p>
+      </section>
+
+      <section class="assistant-card">
+        <div class="card-head"><div><span class="kicker">Emma</span><h2>Evidence assistant</h2></div><button id="mic-button" title="Voice command">🎙</button></div>
+        <p id="emma-copy">Ask about the evidence or say “next slide”.</p>
+        <form id="ask-form"><input id="command" maxlength="180" autocomplete="off" placeholder="Study 0, PCA, bootstrap, next slide…"><button class="primary" type="submit">Ask</button></form>
+      </section>
+
+      <section class="concept-card">
+        <span class="kicker">Pedagogical descent</span><h2 id="concept-title">Select a concept</h2><p id="concept-copy">A selected chart term becomes a navigable concept instead of a dead label.</p>
+      </section>
+
+      <section class="evidence-card">
+        <span class="kicker">Evidence boundary</span><p id="evidence-copy"></p>
+        <a href="https://github.com/gharbonnier78/siamese-embedding-compression-lab/blob/main/STUDY0_FINAL_REPORT.md" target="_blank" rel="noopener noreferrer">Open source artifact ↗</a>
+      </section>
+    </aside>
+  </main>
+  <footer>Camera frames stay in the browser. MediaPipe is optional and on-device. No LLM-generated claim is canonical in this MVP.</footer>
+  <script type="module" src="./main.mjs"></script>
+</body>
+</html>
