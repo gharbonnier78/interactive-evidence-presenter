@@ -68,7 +68,9 @@ function otlpValue(value) {
 }
 
 function otlpAttributes(values) {
-  return Object.entries(values).map(([key, value]) => ({ key, value: otlpValue(value) }));
+  return Object.entries(values)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => ({ key, value: otlpValue(value) }));
 }
 
 function traceEnvelope(span, serviceName = 'interactive-evidence-presenter.server') {
@@ -110,23 +112,60 @@ function ingestOtlp(pathname, payload) {
   if (pathname === '/v1/metrics') telemetryStore.ingestMetrics(payload);
 }
 
-function recordServerSpan(traceContext, method, pathname, statusCode, startTimeUnixNano) {
+function firstHeader(value) {
+  if (Array.isArray(value)) return value[0];
+  return typeof value === 'string' ? value.split(',')[0].trim() : undefined;
+}
+
+function httpServerAttributes(req, pathname, statusCode) {
+  const forwardedProto = firstHeader(req.headers['x-forwarded-proto']);
+  const scheme = forwardedProto || (req.socket.encrypted ? 'https' : 'http');
+  const hostHeader = firstHeader(req.headers['x-forwarded-host']) || firstHeader(req.headers.host) || 'localhost';
+  let serverAddress = hostHeader;
+  let serverPort = scheme === 'https' ? 443 : 80;
+  try {
+    const authority = new URL(`${scheme}://${hostHeader}`);
+    serverAddress = authority.hostname;
+    serverPort = Number(authority.port || serverPort);
+  } catch {
+    // Keep best-effort Host value; semantic conventions explicitly require best effort.
+  }
+
+  const forwardedFor = firstHeader(req.headers['x-forwarded-for']);
+  const clientAddress = forwardedFor || req.socket.remoteAddress;
+  const attributes = {
+    'http.request.method': req.method,
+    'url.path': pathname,
+    'url.scheme': scheme,
+    'http.route': pathname === '/' ? '/' : undefined,
+    'http.response.status_code': statusCode,
+    'network.protocol.version': req.httpVersion,
+    'server.address': serverAddress,
+    'server.port': serverPort,
+    'client.address': clientAddress,
+    'network.peer.address': req.socket.remoteAddress,
+    'network.peer.port': req.socket.remotePort
+  };
+
+  if (statusCode >= 500) attributes['error.type'] = String(statusCode);
+  return attributes;
+}
+
+function recordServerSpan(traceContext, req, pathname, statusCode, startTimeUnixNano) {
   if (!traceContext) return;
   const span = {
     traceId: traceContext.traceId,
     spanId: randomBytes(8).toString('hex'),
     parentSpanId: traceContext.parentSpanId,
-    name: `${method} ${pathname}`,
+    name: `${req.method} ${pathname === '/' ? '/' : ''}`.trim(),
     kind: 2,
     startTimeUnixNano,
     endTimeUnixNano: nowNs(),
-    attributes: otlpAttributes({
-      'http.request.method': method,
-      'url.path': pathname,
-      'http.response.status_code': statusCode
-    }),
-    status: { code: statusCode < 500 ? 1 : 2 }
+    attributes: otlpAttributes(httpServerAttributes(req, pathname, statusCode))
   };
+  // HTTP semantic conventions require Status to remain UNSET for successful server spans
+  // and for server-side 4xx responses. 5xx responses are errors.
+  if (statusCode >= 500) span.status = { code: 2 };
   telemetryStore.ingestTraces(traceEnvelope(span));
 }
 
@@ -178,7 +217,7 @@ const server = createServer(async (req, res) => {
   const incomingTrace = EVIDENCE_TEST_MODE && pathname === '/' ? parseTraceparent(req.headers.traceparent) : null;
   const filePath = safePath(req.url ?? '/');
   if (!filePath) {
-    recordServerSpan(incomingTrace, req.method, pathname, 400, startTimeUnixNano);
+    recordServerSpan(incomingTrace, req, pathname, 400, startTimeUnixNano);
     res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Bad Request');
   }
@@ -187,11 +226,11 @@ const server = createServer(async (req, res) => {
     const info = await stat(filePath);
     if (!info.isFile()) throw new Error('not-file');
     const body = await readFile(filePath);
-    recordServerSpan(incomingTrace, req.method, pathname, 200, startTimeUnixNano);
+    recordServerSpan(incomingTrace, req, pathname, 200, startTimeUnixNano);
     res.writeHead(200, { 'Content-Type': MIME.get(extname(filePath)) ?? 'application/octet-stream' });
     return req.method === 'HEAD' ? res.end() : res.end(body);
   } catch {
-    recordServerSpan(incomingTrace, req.method, pathname, 404, startTimeUnixNano);
+    recordServerSpan(incomingTrace, req, pathname, 404, startTimeUnixNano);
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Not Found');
   }
