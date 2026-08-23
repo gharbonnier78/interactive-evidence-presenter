@@ -1,0 +1,72 @@
+{
+  "id": "E2E-FIGURE-004",
+  "useCaseId": "UC-002C",
+  "title": "Select a chart region through the semantic surface",
+  "purpose": "Demonstrate that a graphical region is resolved through the same semantic service path as text, using a bounded semantic hint and preserving Diderot provenance plus runtime evidence.",
+  "actor": "Presenter / reviewer",
+  "preconditions": [
+    "Interactive Evidence Presenter is reachable.",
+    "The Study 0 chart is visible and the PCA 128D bar is rendered.",
+    "E2E evidence mode is enabled for the qualification run only."
+  ],
+  "activity": [
+    { "id": "A1", "label": "Open presenter", "span": "iep.presenter.open" },
+    { "id": "A2", "label": "Point/click PCA chart region", "span": "iep.semantic.resolve" },
+    { "id": "A3", "label": "Resolve figure semantic hint", "span": "iep.semantic.resolve" },
+    { "id": "A4", "label": "Render PCA explanation", "span": "iep.explanation.render" },
+    { "id": "A5", "label": "Recover correlated evidence", "span": "test.e2e.figure_exploration" }
+  ],
+  "sequence": {
+    "participants": ["Presenter", "Canvas hit-test", "Browser UI", "Explanation API", "Diderot resolver", "Telemetry adapter", "Evidence API"],
+    "messages": [
+      { "from": "Presenter", "to": "Canvas hit-test", "label": "Select PCA bar region", "expected": "Hit-test identifies Study 0 route index 1 and semantic hint study0.route.1." },
+      { "from": "Canvas hit-test", "to": "Browser UI", "label": "Emit figure-region selection", "expected": "Selection text is PCA 128D and elementType is figure-region." },
+      { "from": "Browser UI", "to": "Explanation API", "label": "POST figure selection + semantic hint", "expected": "HTTP API receives a bounded figure-region request." },
+      { "from": "Explanation API", "to": "Diderot resolver", "label": "Resolve whitelisted semantic hint", "expected": "semantic.id = concept:pca, source.tier = diderot, fallback.required = false." },
+      { "from": "Diderot resolver", "to": "Browser UI", "label": "Return PCA explanation", "expected": "Interactive panel title is PCA and provenance stays Diderot." },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit figure semantic + explanation signals", "expected": "selection.type = figure-region, semantic.id = concept:pca, source = diderot, transport = api." },
+      { "from": "Telemetry adapter", "to": "Evidence API", "label": "OTLP traces / logs / metrics", "expected": "GET root SpanId recovers the expected figure-selection subtree and validator returns PASS." }
+    ]
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Select the PCA graphical region",
+      "action": "Click the PCA 128D bar in the Study 0 canvas.",
+      "expected": [
+        "The semantic panel records Selected: “PCA 128D”.",
+        "The source label is Diderot · api.",
+        "The panel title is PCA.",
+        "The displayed intuition includes unsupervised linear projection.",
+        "The internet fallback remains hidden."
+      ],
+      "screenshot": "01-figure-pca-selection.png"
+    },
+    {
+      "id": "S2",
+      "title": "Verify the figure semantic API contract",
+      "action": "Call POST /api/semantic/v1/resolve with elementType figure-region and semanticHint study0.route.1.",
+      "expected": [
+        "status is resolved.",
+        "semantic.id is concept:pca.",
+        "semantic.matchKind is semantic-hint.",
+        "knowledge.source.tier is diderot.",
+        "fallback.required is false."
+      ],
+      "screenshot": null
+    },
+    {
+      "id": "S3",
+      "title": "Recover and verify figure runtime evidence",
+      "action": "Flush OTLP signals and query the evidence bundle by the Playwright root SpanId.",
+      "expected": [
+        "The semantic.resolve span records figure-region, PCA 128D, concept:pca, source diderot and transport api.",
+        "The explanation.render span is correlated to concept:pca.",
+        "Expected logs and metric exemplars are correlated.",
+        "No ERROR-or-higher LogRecord is present.",
+        "The executable telemetry contract verdict is PASS."
+      ],
+      "screenshot": null
+    }
+  ]
+}

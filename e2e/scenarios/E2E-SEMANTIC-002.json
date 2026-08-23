@@ -1,0 +1,70 @@
+{
+  "id": "E2E-SEMANTIC-002",
+  "useCaseId": "UC-002A",
+  "title": "Select known visible presentation text and resolve Diderot-first",
+  "purpose": "Demonstrate that an arbitrary visible known text selection is interpreted as a semantic query, resolved against the bounded Diderot knowledge tier before any internet fallback, rendered interactively, and retained as correlated engineering evidence.",
+  "actor": "Presenter / reviewer",
+  "preconditions": [
+    "Interactive Evidence Presenter is reachable.",
+    "The bounded Diderot projection contains the PCA concept.",
+    "E2E evidence mode is enabled for the qualification run only."
+  ],
+  "activity": [
+    { "id": "A1", "label": "Open presenter", "span": "iep.presenter.open" },
+    { "id": "A2", "label": "Select visible text PCA", "span": "iep.semantic.resolve" },
+    { "id": "A3", "label": "Resolve Diderot concept from selected text", "span": "iep.semantic.resolve" },
+    { "id": "A4", "label": "Render bounded explanation", "span": "iep.explanation.render" },
+    { "id": "A5", "label": "Recover correlated evidence", "span": "test.e2e.semantic_exploration" }
+  ],
+  "sequence": {
+    "participants": ["Presenter", "Browser UI", "Explanation API", "Diderot resolver", "Telemetry adapter", "Evidence API"],
+    "messages": [
+      { "from": "Presenter", "to": "Browser UI", "label": "Select PCA ⇒ selection=PCA", "expected": "Selection text is captured as PCA on the mission slide." },
+      { "from": "Browser UI", "to": "Explanation API", "label": "POST selection ⇒ resolved response", "expected": "HTTP response is resolved, not an invented answer or silent fallback." },
+      { "from": "Explanation API", "to": "Diderot resolver", "label": "Resolve PCA ⇒ concept:pca / diderot / no fallback", "expected": "semantic.id = concept:pca, source.tier = diderot, fallback.required = false; context may disambiguate but cannot create a match." },
+      { "from": "Diderot resolver", "to": "Browser UI", "label": "Return intuition ⇒ PCA panel + bounded explanation", "expected": "Interactive panel title is PCA and explanation states unsupervised linear projection." },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit signals ⇒ correlated spans/logs/exemplars", "expected": "Semantic and explanation spans/logs/metric exemplars preserve root TraceId/SpanId correlation." },
+      { "from": "Telemetry adapter", "to": "Evidence API", "label": "OTLP ⇒ GET root SpanId returns complete subtree/PASS", "expected": "GET root SpanId recovers the complete expected subtree and validator returns PASS." }
+    ]
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Select PCA directly from the visible presentation surface",
+      "action": "Select the visible text PCA without using the dedicated concept-click behavior.",
+      "expected": [
+        "The semantic panel records Selected: “PCA”.",
+        "The source pill identifies Diderot and API transport.",
+        "The panel title is PCA.",
+        "The displayed intuition includes unsupervised linear projection.",
+        "No internet fallback link is shown."
+      ],
+      "screenshot": "01-semantic-pca-selection.png"
+    },
+    {
+      "id": "S2",
+      "title": "Verify the semantic API contract",
+      "action": "Call POST /api/semantic/v1/resolve with PCA and its Study 0 context.",
+      "expected": [
+        "status is resolved.",
+        "semantic.id is concept:pca.",
+        "knowledge.source.tier is diderot.",
+        "fallback.required is false."
+      ],
+      "screenshot": null
+    },
+    {
+      "id": "S3",
+      "title": "Recover and verify semantic runtime evidence",
+      "action": "Flush OTLP signals and query the evidence bundle by the Playwright root SpanId.",
+      "expected": [
+        "The semantic.resolve span carries selection text PCA and resolver source diderot.",
+        "The explanation.render span is correlated to concept:pca.",
+        "Expected structured logs and metric exemplars are correlated to their spans.",
+        "No ERROR-or-higher LogRecord is present.",
+        "The executable telemetry contract verdict is PASS."
+      ],
+      "screenshot": null
+    }
+  ]
+}

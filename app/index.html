@@ -4,17 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Interactive evidence-driven scientific presentation MVP">
+  <meta name="iep-runtime-mode" content="api-preferred">
   <title>Interactive Evidence Presenter</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <header class="topbar">
-    <div><strong>Diderot / Evidence Presenter</strong><span class="muted"> · MVP v0.1</span></div>
+    <div><strong>Diderot / Evidence Presenter</strong><span class="muted"> · MVP v0.2 review</span></div>
     <div class="status-row"><span class="dot"></span><span id="counter">1 / 3</span></div>
   </header>
 
   <main class="shell">
-    <section class="stage" aria-labelledby="slide-title">
+    <section class="stage" id="presentation-stage" aria-labelledby="slide-title">
+      <div class="selection-hint"><strong>Interactive:</strong> select any word or paragraph, or click a chart bar. Diderot/local knowledge is tried first; unresolved selections expose an explicit web fallback.</div>
       <div class="slide-copy">
         <p class="eyebrow" id="eyebrow"></p>
         <h1 id="slide-title"></h1>
@@ -26,10 +28,10 @@
         </div>
       </div>
 
-      <div class="chart-card">
+      <div class="chart-card" id="study-chart-region" data-semantic-region="study0.ucb_chart">
         <div class="card-head"><div><span class="kicker">Study 0</span><h2>Corrected UCB by route</h2></div><span class="badge" id="chart-backend">initializing…</span></div>
         <canvas id="result-chart" role="img" aria-label="Upper confidence bounds for Random, PCA and Siamese 128D routes"></canvas>
-        <p class="caption">Bars use the corrected 97.5% UCB high values. The 0.03 line is the frozen non-inferiority margin.</p>
+        <p class="caption">Bars use the corrected 97.5% UCB high values. The 0.03 line is the frozen non-inferiority margin. Click a bar to inspect that route.</p>
       </div>
 
       <div class="controls"><button id="previous">← Previous</button><button id="next" class="primary">Next →</button></div>
@@ -48,8 +50,11 @@
         <form id="ask-form"><input id="command" maxlength="180" autocomplete="off" placeholder="Study 0, PCA, bootstrap, next slide…"><button class="primary" type="submit">Ask</button></form>
       </section>
 
-      <section class="concept-card">
-        <span class="kicker">Pedagogical descent</span><h2 id="concept-title">Select a concept</h2><p id="concept-copy">A selected chart term becomes a navigable concept instead of a dead label.</p>
+      <section class="concept-card" id="semantic-panel" aria-live="polite">
+        <div class="semantic-head"><div><span class="kicker">Interactive semantic explorer</span><h2 id="concept-title">Select text or a figure</h2></div><span class="source-pill" id="selection-source">waiting</span></div>
+        <p class="selection-label" id="selection-text">Drag over a word or paragraph in the presentation.</p>
+        <p id="concept-copy">The resolver will try the bounded Diderot projection first and preserve source/provenance boundaries.</p>
+        <div class="semantic-actions"><button type="button" data-depth="intuition">Intuition</button><button type="button" data-depth="detail">More detail</button><a id="external-fallback" href="#" target="_blank" rel="noopener noreferrer" hidden>Search web ↗</a></div>
       </section>
 
       <section class="evidence-card">
@@ -58,7 +63,7 @@
       </section>
     </aside>
   </main>
-  <footer>Camera frames stay in the browser. MediaPipe is optional and on-device. No LLM-generated claim is canonical in this MVP.</footer>
+  <footer>Camera frames stay in the browser. MediaPipe is optional and on-device. Semantic resolution is Diderot-first. External web fallback is explicit and never promoted to canonical evidence automatically.</footer>
   <script type="module" src="./main.mjs"></script>
 </body>
 </html>
