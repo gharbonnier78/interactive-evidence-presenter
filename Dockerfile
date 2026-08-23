@@ -5,7 +5,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
            /opt/yarn-v1.22.22 \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx \
              /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
-COPY --chown=node:node package.json server.mjs ./
+COPY --chown=node:node package.json server.mjs telemetry-store.mjs ./
 COPY --chown=node:node app ./app
 ENV NODE_ENV=production PORT=8080
 USER node
