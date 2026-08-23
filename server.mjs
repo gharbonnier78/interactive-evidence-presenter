@@ -4,6 +4,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TelemetryStore } from './telemetry-store.mjs';
+import { getDiderotConcept, renderBoundedExplanation, resolveSemanticSelection, semanticManifest } from './app/semantic-core.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('./app/', import.meta.url)));
 const PORT = Number.parseInt(process.env.PORT ?? '8080', 10);
@@ -130,10 +131,50 @@ function recordServerSpan(traceContext, method, pathname, statusCode, startTimeU
   telemetryStore.ingestTraces(traceEnvelope(span));
 }
 
+async function semanticApi(req, res, pathname) {
+  if (req.method === 'GET' && pathname === '/api/presentation/v1/semantic-manifest') {
+    return json(res, 200, semanticManifest());
+  }
+
+  if (req.method === 'GET' && pathname.startsWith('/api/knowledge/v1/concepts/')) {
+    const id = decodeURIComponent(pathname.slice('/api/knowledge/v1/concepts/'.length));
+    const concept = getDiderotConcept(id);
+    return concept ? json(res, 200, concept) : json(res, 404, { error: 'concept-not-found', id });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/semantic/v1/resolve') {
+    try {
+      const payload = await readJson(req, 32_000);
+      return json(res, 200, resolveSemanticSelection(payload));
+    } catch (error) {
+      return json(res, error?.message === 'payload-too-large' ? 413 : 400, { error: error?.message ?? 'invalid-json' });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/explanations/v1/render') {
+    try {
+      const payload = await readJson(req, 32_000);
+      const resolution = resolveSemanticSelection(payload);
+      const explanation = renderBoundedExplanation(resolution, payload.depth);
+      return json(res, 200, { resolution, explanation });
+    } catch (error) {
+      return json(res, error?.message === 'payload-too-large' ? 413 : 400, { error: error?.message ?? 'invalid-json' });
+    }
+  }
+
+  return false;
+}
+
 const server = createServer(async (req, res) => {
   setSecurityHeaders(res);
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
   const pathname = url.pathname;
+
+  if (pathname.startsWith('/api/presentation/') || pathname.startsWith('/api/knowledge/') || pathname.startsWith('/api/semantic/') || pathname.startsWith('/api/explanations/')) {
+    const handled = await semanticApi(req, res, pathname);
+    if (handled !== false) return handled;
+    return json(res, 404, { error: 'api-route-not-found', path: pathname });
+  }
 
   if (EVIDENCE_TEST_MODE && req.method === 'POST' && ['/v1/traces', '/v1/logs', '/v1/metrics'].includes(pathname)) {
     if (!(req.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
