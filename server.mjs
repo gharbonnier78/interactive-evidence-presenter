@@ -11,6 +11,8 @@ const PORT = Number.parseInt(process.env.PORT ?? '8080', 10);
 const HOST = '0.0.0.0';
 const EVIDENCE_TEST_MODE = process.env.EVIDENCE_TEST_MODE === '1';
 const telemetryStore = new TelemetryStore();
+const SEMANTIC_ELEMENT_TYPES = new Set(['text', 'figure-region', 'concept-click']);
+const EXPLANATION_DEPTHS = new Set(['intuition', 'detail']);
 
 const MIME = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -105,6 +107,23 @@ function json(res, status, value) {
   res.end(JSON.stringify(value));
 }
 
+function isJsonRequest(req) {
+  return (req.headers['content-type'] ?? '').toLowerCase().startsWith('application/json');
+}
+
+function validateSemanticPayload(payload, { allowDepth = false } = {}) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return 'payload-must-be-object';
+  if (typeof payload.text !== 'string') return 'text-must-be-string';
+  const text = payload.text.replace(/\s+/g, ' ').trim();
+  if (text.length < 1 || text.length > 180) return 'text-length-out-of-range';
+  if (payload.context !== undefined && (typeof payload.context !== 'string' || payload.context.length > 500)) return 'context-invalid';
+  if (payload.slideId !== undefined && payload.slideId !== null && (typeof payload.slideId !== 'string' || payload.slideId.length > 80)) return 'slideId-invalid';
+  if (payload.elementType !== undefined && !SEMANTIC_ELEMENT_TYPES.has(payload.elementType)) return 'elementType-invalid';
+  if (payload.semanticHint !== undefined && payload.semanticHint !== null && (typeof payload.semanticHint !== 'string' || payload.semanticHint.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(payload.semanticHint))) return 'semanticHint-invalid';
+  if (allowDepth && payload.depth !== undefined && !EXPLANATION_DEPTHS.has(payload.depth)) return 'depth-invalid';
+  return null;
+}
+
 function ingestOtlp(pathname, payload) {
   if (pathname === '/v1/traces') telemetryStore.ingestTraces(payload);
   if (pathname === '/v1/logs') telemetryStore.ingestLogs(payload);
@@ -138,23 +157,19 @@ async function semanticApi(req, res, pathname) {
 
   if (req.method === 'GET' && pathname.startsWith('/api/knowledge/v1/concepts/')) {
     const id = decodeURIComponent(pathname.slice('/api/knowledge/v1/concepts/'.length));
+    if (!/^[a-z0-9-]{1,64}$/.test(id)) return json(res, 400, { error: 'invalid-concept-id' });
     const concept = getDiderotConcept(id);
     return concept ? json(res, 200, concept) : json(res, 404, { error: 'concept-not-found', id });
   }
 
-  if (req.method === 'POST' && pathname === '/api/semantic/v1/resolve') {
+  if (req.method === 'POST' && (pathname === '/api/semantic/v1/resolve' || pathname === '/api/explanations/v1/render')) {
+    if (!isJsonRequest(req)) return json(res, 415, { error: 'application-json-required' });
     try {
       const payload = await readJson(req, 32_000);
-      return json(res, 200, resolveSemanticSelection(payload));
-    } catch (error) {
-      return json(res, error?.message === 'payload-too-large' ? 413 : 400, { error: error?.message ?? 'invalid-json' });
-    }
-  }
-
-  if (req.method === 'POST' && pathname === '/api/explanations/v1/render') {
-    try {
-      const payload = await readJson(req, 32_000);
+      const problem = validateSemanticPayload(payload, { allowDepth: pathname === '/api/explanations/v1/render' });
+      if (problem) return json(res, 400, { error: 'invalid-semantic-payload', reason: problem });
       const resolution = resolveSemanticSelection(payload);
+      if (pathname === '/api/semantic/v1/resolve') return json(res, 200, resolution);
       const explanation = renderBoundedExplanation(resolution, payload.depth);
       return json(res, 200, { resolution, explanation });
     } catch (error) {
@@ -177,7 +192,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (EVIDENCE_TEST_MODE && req.method === 'POST' && ['/v1/traces', '/v1/logs', '/v1/metrics'].includes(pathname)) {
-    if (!(req.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
+    if (!isJsonRequest(req)) {
       return json(res, 415, { error: 'OTLP JSON requires application/json' });
     }
     try {
