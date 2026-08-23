@@ -17,7 +17,7 @@ end note
 note right
 <<span: iep.slide.navigate>>
 iep.slide.from = mission
-iep.slide.to = study0
+iep.slide.to = study-0
 iep.navigation.action = next
 end note
 
