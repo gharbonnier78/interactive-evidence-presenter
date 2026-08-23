@@ -1,0 +1,7 @@
+.git
+.github
+docs
+tests
+scripts
+*.md
+gha-creds-*.json

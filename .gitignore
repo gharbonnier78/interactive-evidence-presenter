@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+gha-creds-*.json
+.env
+.env.*
+!.env.example

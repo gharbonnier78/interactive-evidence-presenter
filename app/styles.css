@@ -1,0 +1,23 @@
+:root { color-scheme: dark; --bg:#0b1020; --panel:#11182c; --text:#f6f8ff; --muted:#9aa7bd; --line:#28334e; --accent:#5fd1c7; --accent2:#9c7cff; --warn:#ffcc66; }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:radial-gradient(circle at 20% -10%,#1a2650 0,transparent 32%),var(--bg); color:var(--text); }
+button,input { font:inherit; }
+button { color:var(--text); background:#17213b; border:1px solid var(--line); border-radius:10px; padding:.65rem .9rem; cursor:pointer; }
+button:hover { border-color:#526184; }
+button.primary { background:linear-gradient(135deg,#2b7f78,#5f49a9); border-color:transparent; }
+a { color:#8fe5dd; }
+.topbar { height:58px; display:flex; align-items:center; justify-content:space-between; padding:0 24px; border-bottom:1px solid var(--line); background:rgba(8,12,24,.78); backdrop-filter:blur(14px); position:sticky; top:0; z-index:10; }
+.status-row { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:.9rem; }.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+.muted,.tiny,.caption { color:var(--muted); }.tiny{font-size:.78rem}.caption{font-size:.82rem;margin:.7rem 0 0}
+.shell { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:18px; padding:18px; max-width:1600px; margin:0 auto; }
+.stage,.side>section { border:1px solid var(--line); background:linear-gradient(180deg,rgba(20,29,52,.96),rgba(13,19,36,.96)); border-radius:18px; }
+.stage { min-height:calc(100vh - 114px); padding:34px; display:flex; flex-direction:column; }
+.slide-copy { max-width:980px; }.eyebrow,.kicker { color:var(--accent); text-transform:uppercase; letter-spacing:.13em; font-weight:700; font-size:.72rem; }.slide-copy h1{font-size:clamp(2.1rem,4.2vw,4.4rem);line-height:1.02;margin:.4rem 0 1rem;max-width:1100px}.lead{color:#c8d0df;font-size:1.12rem;line-height:1.55;max-width:900px}
+.concepts { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }.concepts button{border-radius:999px;padding:.45rem .7rem;font-size:.85rem;background:#10182c}
+.chart-card { margin-top:28px; border:1px solid var(--line); background:#0d1427; border-radius:16px; padding:18px; }.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.card-head h2{margin:.25rem 0;font-size:1.05rem}.badge{font-size:.76rem;color:#b9c5d8;background:#16213d;border:1px solid var(--line);padding:.35rem .55rem;border-radius:999px}#result-chart{width:100%;height:210px;display:block;margin-top:8px}
+.controls { display:flex; justify-content:space-between; margin-top:auto; padding-top:24px; }
+.side { display:flex; flex-direction:column; gap:14px; }.side>section{padding:14px}.video-wrap{position:relative;aspect-ratio:16/10;background:#070b15;border-radius:12px;overflow:hidden;border:1px solid #222d48}.video-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}.video-label{position:absolute;left:10px;bottom:9px;background:rgba(0,0,0,.55);padding:.28rem .5rem;border-radius:7px;font-size:.75rem}.video-actions{display:flex;gap:8px;margin-top:10px}.video-actions button{flex:1;font-size:.82rem}
+.assistant-card p,.concept-card p,.evidence-card p{color:#c6cede;line-height:1.45;font-size:.92rem}.assistant-card form{display:flex;gap:8px}.assistant-card input{min-width:0;flex:1;background:#09101f;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:.7rem}.assistant-card input:focus{outline:2px solid #4b8e88;outline-offset:1px}.evidence-card{border-color:#544929!important}.evidence-card .kicker{color:var(--warn)}
+footer { padding:0 24px 18px; color:var(--muted); font-size:.78rem; max-width:1600px; margin:auto; }
+@media (max-width:1000px){.shell{grid-template-columns:1fr}.stage{min-height:auto}.side{display:grid;grid-template-columns:1fr 1fr}.slide-copy h1{font-size:2.5rem}}
+@media (max-width:680px){.shell{padding:10px}.stage{padding:22px}.side{display:flex}.topbar{padding:0 14px}.slide-copy h1{font-size:2rem}.video-actions,.assistant-card form{flex-direction:column}}
