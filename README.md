@@ -42,7 +42,7 @@ The service contracts are documented in `docs/SERVICE_APIS.md`.
 npm install
 npx playwright install chromium
 npm run test:e2e
-npm run build:uat-report
+npm run uat:report
 npm run test:e2e:report
 ```
 
