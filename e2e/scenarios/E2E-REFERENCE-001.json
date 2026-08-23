@@ -18,15 +18,15 @@
   "sequence": {
     "participants": ["Presenter", "Browser UI", "Evidence model", "Telemetry adapter", "Evidence API"],
     "messages": [
-      { "from": "Presenter", "to": "Browser UI", "label": "Open /" },
-      { "from": "Browser UI", "to": "Evidence model", "label": "Read C-NI-001" },
-      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit presenter/evidence spans" },
-      { "from": "Presenter", "to": "Browser UI", "label": "Next" },
-      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit navigation span + log + metric exemplar" },
-      { "from": "Presenter", "to": "Browser UI", "label": "Open PCA" },
-      { "from": "Browser UI", "to": "Evidence model", "label": "Read PCA explanation" },
-      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit concept span + log + metric exemplar" },
-      { "from": "Telemetry adapter", "to": "Evidence API", "label": "OTLP traces / logs / metrics" }
+      { "from": "Presenter", "to": "Browser UI", "label": "Open /", "expected": "Presenter loads and claim area is visible" },
+      { "from": "Browser UI", "to": "Evidence model", "label": "Read C-NI-001", "expected": "C-NI-001 = NOT_DEMONSTRATED" },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit presenter/evidence spans", "expected": "open + evidence spans are correlated to root" },
+      { "from": "Presenter", "to": "Browser UI", "label": "Next", "expected": "Study 0 slide becomes active" },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit navigation signals", "expected": "mission -> study-0, action=next + log + exemplar" },
+      { "from": "Presenter", "to": "Browser UI", "label": "Open PCA", "expected": "PCA detail panel opens" },
+      { "from": "Browser UI", "to": "Evidence model", "label": "Read PCA explanation", "expected": "PCA explanation stays linked to C-NI-001" },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit concept signals", "expected": "PCA span + correlated log + metric exemplar" },
+      { "from": "Telemetry adapter", "to": "Evidence API", "label": "OTLP traces / logs / metrics", "expected": "GET root SpanId recovers complete expected subtree" }
     ]
   },
   "steps": [
