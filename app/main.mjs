@@ -1,7 +1,9 @@
 import { SLIDES, STUDY, CONCEPTS, parseCommand, boundedAnswer } from './core.mjs';
 import { normalizeOnGpu } from './typegpu.mjs';
 import { startGestureRecognition } from './mediapipe.mjs';
+import { createTelemetry } from './telemetry.mjs';
 
+const telemetry = createTelemetry();
 const $ = (selector) => document.querySelector(selector);
 const els = {
   eyebrow: $('#eyebrow'), title: $('#slide-title'), body: $('#slide-body'), counter: $('#counter'),
@@ -26,16 +28,38 @@ function renderSlide() {
   document.body.dataset.slide = slide.id;
 }
 
-function next() { slideIndex = (slideIndex + 1) % SLIDES.length; renderSlide(); }
-function previous() { slideIndex = (slideIndex - 1 + SLIDES.length) % SLIDES.length; renderSlide(); }
-function show(id) { const i = SLIDES.findIndex((slide) => slide.id === id); if (i >= 0) { slideIndex = i; renderSlide(); } }
+function navigateTo(nextIndex, action) {
+  const from = SLIDES[slideIndex].id;
+  const to = SLIDES[nextIndex].id;
+  const span = telemetry.startSpan('iep.slide.navigate', {
+    'iep.slide.from': from,
+    'iep.slide.to': to,
+    'iep.navigation.action': action
+  });
+  slideIndex = nextIndex;
+  renderSlide();
+  span.end({ eventName: 'iep.slide.navigated', eventBody: `Slide ${from} -> ${to}` });
+}
+
+function next() { navigateTo((slideIndex + 1) % SLIDES.length, 'next'); }
+function previous() { navigateTo((slideIndex - 1 + SLIDES.length) % SLIDES.length, 'previous'); }
+function show(id) {
+  const i = SLIDES.findIndex((slide) => slide.id === id);
+  if (i >= 0) navigateTo(i, 'show');
+}
 
 function showConcept(id) {
   const concept = CONCEPTS[id];
   if (!concept) return;
+  const span = telemetry.startSpan('iep.concept.open', {
+    'iep.concept.id': id,
+    'iep.concept.name': concept.title,
+    'iep.claim.id': STUDY.claim
+  });
   setText(els.conceptTitle, concept.title);
   setText(els.conceptCopy, concept.deep);
   setText(els.emma, concept.short);
+  span.end({ eventName: 'iep.concept.opened', eventBody: `Concept ${concept.title} opened` });
 }
 
 function execute(raw) {
@@ -161,5 +185,16 @@ function bind() {
   });
 }
 
+const openSpan = telemetry.startSpan('iep.presenter.open', { 'iep.slide.id': SLIDES[slideIndex].id });
+renderSlide();
+openSpan.end({ eventName: 'iep.presenter.opened', eventBody: 'Presenter opened', metric: false });
+
+const evidenceSpan = telemetry.startSpan('iep.evidence.render', {
+  'iep.claim.id': STUDY.claim,
+  'iep.claim.status': STUDY.claimStatus
+});
 setText(els.evidence, `${STUDY.claim}: ${STUDY.claimStatus}. ${STUDY.statement}`);
-renderSlide(); bind(); initChart();
+evidenceSpan.end({ eventName: 'iep.evidence.rendered', eventBody: 'Claim evidence rendered', metric: false });
+
+bind();
+initChart();
