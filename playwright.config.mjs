@@ -26,6 +26,7 @@ export default defineConfig({
   webServer: {
     command: 'npm start',
     url: 'http://127.0.0.1:8080/healthz',
+    env: { ...process.env, EVIDENCE_TEST_MODE: '1' },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000
   }
