@@ -11,6 +11,8 @@ const files = [
   'app/mediapipe.mjs',
   'app/telemetry.mjs',
   'e2e/contracts/E2E-REFERENCE-001.json',
+  'e2e/scenarios/E2E-REFERENCE-001.json',
+  'scripts/build-uat-report.mjs',
   'docs/ARCHITECTURE.md',
   'docs/SECURITY.md',
   'docs/TELEMETRY_EVIDENCE.md'

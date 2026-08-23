@@ -1,0 +1,79 @@
+{
+  "id": "E2E-REFERENCE-001",
+  "useCaseId": "UC-001",
+  "title": "Navigate from canonical evidence to a pedagogical concept",
+  "purpose": "Demonstrate that a presenter can move from the conference surface to the bounded Study 0 result and then open the PCA explanation without changing the scientific claim.",
+  "actor": "Presenter / reviewer",
+  "preconditions": [
+    "Interactive Evidence Presenter is reachable.",
+    "The bundled Study 0 claim C-NI-001 is available.",
+    "E2E evidence mode is enabled for the qualification run only."
+  ],
+  "activity": [
+    { "id": "A1", "label": "Open presenter", "span": "iep.presenter.open" },
+    { "id": "A2", "label": "Render canonical Study 0 claim", "span": "iep.evidence.render" },
+    { "id": "A3", "label": "Navigate to Study 0", "span": "iep.slide.navigate" },
+    { "id": "A4", "label": "Open PCA concept", "span": "iep.concept.open" }
+  ],
+  "sequence": {
+    "participants": ["Presenter", "Browser UI", "Evidence model", "Telemetry adapter", "Evidence API"],
+    "messages": [
+      { "from": "Presenter", "to": "Browser UI", "label": "Open /" },
+      { "from": "Browser UI", "to": "Evidence model", "label": "Read C-NI-001" },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit presenter/evidence spans" },
+      { "from": "Presenter", "to": "Browser UI", "label": "Next" },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit navigation span + log + metric exemplar" },
+      { "from": "Presenter", "to": "Browser UI", "label": "Open PCA" },
+      { "from": "Browser UI", "to": "Evidence model", "label": "Read PCA explanation" },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit concept span + log + metric exemplar" },
+      { "from": "Telemetry adapter", "to": "Evidence API", "label": "OTLP traces / logs / metrics" }
+    ]
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Open the conference surface",
+      "action": "Open the presenter root page.",
+      "expected": [
+        "The application title is Interactive Evidence Presenter.",
+        "C-NI-001 is visibly marked NOT_DEMONSTRATED.",
+        "The wording states that corrected Study 0 did not demonstrate non-inferiority."
+      ],
+      "screenshot": "01-open-presenter.png"
+    },
+    {
+      "id": "S2",
+      "title": "Navigate to Study 0",
+      "action": "Activate Next once.",
+      "expected": [
+        "The visible H1 is Compression did not demonstrate non-inferiority.",
+        "The telemetry navigation span records mission -> study-0 with action next."
+      ],
+      "screenshot": "02-study0.png"
+    },
+    {
+      "id": "S3",
+      "title": "Open the PCA pedagogical descent",
+      "action": "Activate the PCA concept button.",
+      "expected": [
+        "The concept title is PCA.",
+        "Emma explains PCA as an unsupervised linear projection.",
+        "The concept span remains linked to claim C-NI-001."
+      ],
+      "screenshot": "03-pca.png"
+    },
+    {
+      "id": "S4",
+      "title": "Recover and verify runtime evidence",
+      "action": "Flush OTLP signals and query the evidence bundle by the Playwright root SpanId.",
+      "expected": [
+        "All expected spans and parent relationships are recovered.",
+        "Expected structured logs are correlated to the correct spans.",
+        "Interaction-duration metrics contain exemplars correlated to the navigation and concept spans.",
+        "No ERROR-or-higher LogRecord is present.",
+        "The executable telemetry contract verdict is PASS."
+      ],
+      "screenshot": null
+    }
+  ]
+}
