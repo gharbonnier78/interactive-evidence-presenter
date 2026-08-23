@@ -1,0 +1,25 @@
+schema_version: "1.0"
+project: interactive-evidence-presenter
+profile: MVP
+harness:
+  repository: gharbonnier78/scientific-research-harness
+  ref_policy: pin exact merge commit after engineering-care-profile is merged
+authoritative_sources:
+  - repository: gharbonnier78/siamese-embedding-compression-lab
+    artifact: STUDY0_FINAL_REPORT.md
+    claim_registry: claims/registry.yaml
+local_extensions:
+  - docs/ARCHITECTURE.md
+  - docs/SECURITY.md
+  - docs/CODE_STRUCTURE.md
+gates:
+  - id: MVP-BUILD
+    criterion: static checks and unit tests pass
+  - id: MVP-SECURITY
+    criterion: CodeQL, secret scan and Trivy filesystem/container checks have no unresolved high/critical finding
+  - id: MVP-DEPLOY
+    criterion: Cloud Run health endpoint responds and browser smoke test succeeds
+prohibited_inferences:
+  - The presenter UI does not upgrade an experimental claim.
+  - A generated explanation is not canonical evidence.
+  - A TypeGPU capability probe is not evidence of end-to-end performance improvement.
