@@ -22,37 +22,37 @@
       {
         "from": "Presenter",
         "to": "Browser UI",
-        "label": "Select text PCA",
+        "label": "Select PCA ⇒ selection=PCA",
         "expected": "Selection text is captured as PCA on the mission slide."
       },
       {
         "from": "Browser UI",
         "to": "Explanation API",
-        "label": "POST selection + context",
+        "label": "POST selection ⇒ resolved response",
         "expected": "HTTP response is resolved, not an invented answer or silent fallback."
       },
       {
         "from": "Explanation API",
         "to": "Diderot resolver",
-        "label": "Resolve PCA locally first",
+        "label": "Resolve PCA ⇒ concept:pca / diderot / no fallback",
         "expected": "semantic.id = concept:pca, source.tier = diderot, fallback.required = false."
       },
       {
         "from": "Diderot resolver",
         "to": "Browser UI",
-        "label": "Return PCA intuition",
+        "label": "Return intuition ⇒ PCA panel + bounded explanation",
         "expected": "Interactive panel title is PCA and explanation states unsupervised linear projection."
       },
       {
         "from": "Browser UI",
         "to": "Telemetry adapter",
-        "label": "Emit semantic + explanation signals",
+        "label": "Emit signals ⇒ correlated spans/logs/exemplars",
         "expected": "Semantic and explanation spans/logs/metric exemplars preserve root TraceId/SpanId correlation."
       },
       {
         "from": "Telemetry adapter",
         "to": "Evidence API",
-        "label": "OTLP traces / logs / metrics",
+        "label": "OTLP ⇒ GET root SpanId returns complete subtree/PASS",
         "expected": "GET root SpanId recovers the complete expected subtree and validator returns PASS."
       }
     ]
