@@ -2,8 +2,45 @@
 
 Turn scientific results into interactive, explainable, multimodal presentations backed by evidence.
 
-This repository hosts a bounded MVP for an evidence-driven scientific presenter: interactive Study 0 evidence, semantic drill-down, a local presenter video tile, voice/text navigation, optional on-device MediaPipe gesture recognition, and a TypeGPU/WebGPU capability probe.
+> The trailing `.` is part of the GitHub repository name: `gharbonnier78/interactive-evidence-presenter.`
 
-The project adopts the scientific-research-harness and an explicit engineering-care profile: architecture and code are documented; tests, lint/type checks, dependency/security checks, and deployment hardening are proportional to the MVP risk and exposure.
+## MVP v0.1
 
-> Note: the trailing `.` is part of the repository name.
+The first bounded MVP demonstrates one real evidence path using the Siamese Embedding Compression Study 0:
+
+- interactive presentation navigation;
+- clickable scientific concepts and pedagogical drill-down;
+- a deterministic, evidence-bounded “Emma” assistant;
+- presenter webcam tile kept local to the browser;
+- optional MediaPipe gesture control: Thumb Up → next, Victory → previous, Open Palm → cancel;
+- TypeGPU/WebGPU computation for chart normalization, with an explicit CPU fallback;
+- Study 0 claim status and corrected confidence-bound values kept visibly separate from explanation;
+- Cloud Run container and keyless GitHub Actions deployment path.
+
+No Neo4j, runtime LLM, avatar, multi-agent system or video upload is required for this MVP.
+
+## Run locally
+
+```bash
+npm run verify
+npm start
+# open http://localhost:8080
+```
+
+## Engineering care
+
+This repository uses the **MVP** engineering-care profile from `scientific-research-harness`:
+
+- system/software architecture: `docs/ARCHITECTURE.md`;
+- code decomposition/change rules: `docs/CODE_STRUCTURE.md`;
+- security posture and residual risks: `docs/SECURITY.md`;
+- Google Cloud deployment contract: `docs/DEPLOYMENT.md`;
+- harness adoption and gates: `harness-adoption.yaml`.
+
+Local verification runs focused unit tests plus static policy checks. GitHub Actions adds container smoke tests, CodeQL, gitleaks and Trivy filesystem/container scans.
+
+## Security boundary
+
+The camera is user-initiated and is not posted to the server. MediaPipe processing is performed in the browser. TypeGPU `0.12.1` and MediaPipe Tasks Vision `1.0.1` are version-pinned browser dependencies. Their current CDN delivery is an explicitly recorded MVP supply-chain risk to remove before a stronger production profile.
+
+Cloud deployment is designed for Google Workload Identity Federation/OIDC rather than a long-lived service-account JSON key.
