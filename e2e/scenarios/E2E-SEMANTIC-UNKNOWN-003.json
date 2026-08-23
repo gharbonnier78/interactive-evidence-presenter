@@ -1,0 +1,69 @@
+{
+  "id": "E2E-SEMANTIC-UNKNOWN-003",
+  "useCaseId": "UC-002B",
+  "title": "Keep an unknown visible selection unresolved",
+  "purpose": "Demonstrate that context cannot manufacture a Diderot concept for an unrelated selected word, and that the product exposes an explicit internet fallback while preserving telemetry evidence.",
+  "actor": "Presenter / reviewer",
+  "preconditions": [
+    "Interactive Evidence Presenter is reachable.",
+    "The current slide contains the word presentation and also contains known concept controls such as PCA.",
+    "E2E evidence mode is enabled for the qualification run only."
+  ],
+  "activity": [
+    { "id": "A1", "label": "Open presenter", "span": "iep.presenter.open" },
+    { "id": "A2", "label": "Select unknown visible word presentation", "span": "iep.semantic.resolve" },
+    { "id": "A3", "label": "Reject context-only concept match", "span": "iep.semantic.resolve" },
+    { "id": "A4", "label": "Render unresolved explanation and explicit fallback", "span": "iep.explanation.render" },
+    { "id": "A5", "label": "Recover correlated evidence", "span": "test.e2e.semantic_unknown" }
+  ],
+  "sequence": {
+    "participants": ["Presenter", "Browser UI", "Explanation API", "Diderot resolver", "Telemetry adapter", "Evidence API"],
+    "messages": [
+      { "from": "Presenter", "to": "Browser UI", "label": "Select word presentation", "expected": "Selection text is captured exactly as presentation." },
+      { "from": "Browser UI", "to": "Explanation API", "label": "POST selection + local context", "expected": "HTTP API receives the selected word as data with bounded context." },
+      { "from": "Explanation API", "to": "Diderot resolver", "label": "Resolve selected element", "expected": "status = unresolved; nearby PCA text must not create concept:pca." },
+      { "from": "Diderot resolver", "to": "Browser UI", "label": "Return unresolved outcome", "expected": "Panel shows Internet fallback and an explicit Search web action; no Diderot answer is fabricated." },
+      { "from": "Browser UI", "to": "Telemetry adapter", "label": "Emit unresolved semantic + explanation signals", "expected": "semantic.id = unresolved, resolver.source = internet, transport = api, all correlated to root." },
+      { "from": "Telemetry adapter", "to": "Evidence API", "label": "OTLP traces / logs / metrics", "expected": "GET root SpanId recovers the expected unresolved subtree and validator returns PASS." }
+    ]
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Select an unrelated visible word",
+      "action": "Select the word presentation from the visible mission title.",
+      "expected": [
+        "The semantic panel records Selected: “presentation”.",
+        "The panel does not resolve PCA or another known concept from surrounding context.",
+        "The source label is Internet fallback.",
+        "The Search web action is visible and remains user-triggered."
+      ],
+      "screenshot": "01-unknown-selection.png"
+    },
+    {
+      "id": "S2",
+      "title": "Verify the negative semantic API contract",
+      "action": "Call POST /api/semantic/v1/resolve with text presentation and context that also contains PCA.",
+      "expected": [
+        "status is unresolved.",
+        "semantic is null.",
+        "fallback.nextTier is internet.",
+        "No context-only concept match is returned."
+      ],
+      "screenshot": null
+    },
+    {
+      "id": "S3",
+      "title": "Recover and verify unresolved runtime evidence",
+      "action": "Flush OTLP signals and query the evidence bundle by the Playwright root SpanId.",
+      "expected": [
+        "The semantic.resolve span records presentation, status unresolved, source internet and transport api.",
+        "The explanation.render span remains correlated to semantic.id unresolved.",
+        "Expected logs and metric exemplars are correlated.",
+        "No ERROR-or-higher LogRecord is present.",
+        "The executable telemetry contract verdict is PASS."
+      ],
+      "screenshot": null
+    }
+  ]
+}
