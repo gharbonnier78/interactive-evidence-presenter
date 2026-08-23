@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import contract from './contracts/E2E-REFERENCE-001.json' with { type: 'json' };
 import scenario from './scenarios/E2E-REFERENCE-001.json' with { type: 'json' };
+import semanticContract from './contracts/E2E-SEMANTIC-002.json' with { type: 'json' };
+import semanticScenario from './scenarios/E2E-SEMANTIC-002.json' with { type: 'json' };
 import { makeTraceId, makeSpanId, nowNs, rootSpanEnvelope, validateTelemetry, pollEvidence } from './telemetry-evidence.mjs';
 
 function comparisonText(validation) {
@@ -37,6 +39,19 @@ function stepResult(definition, actual, checks, screenshot = null) {
     screenshot,
     status: checks.every((item) => item.status === 'PASS') ? 'PASS' : 'FAIL'
   };
+}
+
+async function persistScenarioEvidence({ evidenceDir, result, bundle, validation, comparison, testInfo }) {
+  await writeFile(join(evidenceDir, 'result.json'), JSON.stringify(result, null, 2));
+  await writeFile(join(evidenceDir, 'otel-evidence-bundle.json'), JSON.stringify(bundle, null, 2));
+  await writeFile(join(evidenceDir, 'otel-validation.json'), JSON.stringify(validation, null, 2));
+  await writeFile(join(evidenceDir, 'otel-expected-vs-actual.txt'), comparison);
+
+  console.log(`\n${comparison}\n`);
+  await testInfo.attach('uat-scenario-result.json', { path: join(evidenceDir, 'result.json'), contentType: 'application/json' });
+  await testInfo.attach('otel-evidence-bundle.json', { path: join(evidenceDir, 'otel-evidence-bundle.json'), contentType: 'application/json' });
+  await testInfo.attach('otel-validation.json', { path: join(evidenceDir, 'otel-validation.json'), contentType: 'application/json' });
+  await testInfo.attach('otel-expected-vs-actual.txt', { path: join(evidenceDir, 'otel-expected-vs-actual.txt'), contentType: 'text/plain' });
 }
 
 test('reference evidence navigation remains grounded and telemetry-complete', async ({ page, request }, testInfo) => {
@@ -136,23 +151,136 @@ test('reference evidence navigation remains grounded and telemetry-complete', as
     },
     verdict: steps.every((step) => step.status === 'PASS') && validation.status === 'PASS' ? 'PASS' : 'FAIL',
     steps,
-    telemetry: {
-      contract,
-      validation,
-      bundle
-    }
+    telemetry: { contract, validation, bundle }
   };
 
-  await writeFile(join(evidenceDir, 'result.json'), JSON.stringify(result, null, 2));
-  await writeFile(join(evidenceDir, 'otel-evidence-bundle.json'), JSON.stringify(bundle, null, 2));
-  await writeFile(join(evidenceDir, 'otel-validation.json'), JSON.stringify(validation, null, 2));
-  await writeFile(join(evidenceDir, 'otel-expected-vs-actual.txt'), comparison);
+  await persistScenarioEvidence({ evidenceDir, result, bundle, validation, comparison, testInfo });
 
-  console.log(`\n${comparison}\n`);
-  await testInfo.attach('uat-scenario-result.json', { path: join(evidenceDir, 'result.json'), contentType: 'application/json' });
-  await testInfo.attach('otel-evidence-bundle.json', { path: join(evidenceDir, 'otel-evidence-bundle.json'), contentType: 'application/json' });
-  await testInfo.attach('otel-validation.json', { path: join(evidenceDir, 'otel-validation.json'), contentType: 'application/json' });
-  await testInfo.attach('otel-expected-vs-actual.txt', { path: join(evidenceDir, 'otel-expected-vs-actual.txt'), contentType: 'text/plain' });
+  expect(result.verdict, JSON.stringify(steps.filter((step) => step.status === 'FAIL'), null, 2)).toBe('PASS');
+  expect(validation.status, comparison).toBe('PASS');
+});
+
+test('semantic text selection resolves Diderot-first and remains telemetry-complete', async ({ page, request }, testInfo) => {
+  const traceId = makeTraceId();
+  const rootSpanId = makeSpanId();
+  const rootStart = nowNs();
+  const evidenceDir = join('test-results', 'uat-evidence', semanticScenario.id);
+  await mkdir(evidenceDir, { recursive: true });
+  const steps = [];
+
+  const reset = await request.post('/api/evidence/v1/reset');
+  expect(reset.ok()).toBeTruthy();
+
+  await page.addInitScript(({ traceId: injectedTraceId, rootSpanId: injectedRootSpanId }) => {
+    globalThis.__E2E_TRACE_CONTEXT__ = { traceId: injectedTraceId, rootSpanId: injectedRootSpanId };
+  }, { traceId, rootSpanId });
+  await page.setExtraHTTPHeaders({ traceparent: `00-${traceId}-${rootSpanId}-01` });
+  await page.goto('/');
+
+  await page.evaluate(() => {
+    const button = document.querySelector('[data-concept="pca"]');
+    if (!button) throw new Error('PCA text target missing');
+    const range = document.createRange();
+    range.selectNodeContents(button);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    button.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  });
+
+  await expect(page.locator('#selection-text')).toContainText('Selected: “PCA”');
+  await expect(page.locator('#selection-source')).toContainText('Diderot · api');
+  await expect(page.locator('#concept-title')).toHaveText('PCA');
+  await expect(page.locator('#concept-copy')).toContainText('unsupervised linear projection');
+  await expect(page.locator('#external-fallback')).toBeHidden();
+
+  const selectedLabel = await page.locator('#selection-text').innerText();
+  const sourceLabel = await page.locator('#selection-source').innerText();
+  const semanticTitle = await page.locator('#concept-title').innerText();
+  const explanationText = await page.locator('#concept-copy').innerText();
+  const shot1 = join(evidenceDir, semanticScenario.steps[0].screenshot);
+  await page.screenshot({ path: shot1, fullPage: true });
+  await testInfo.attach('UAT UC-002 S1 - Semantic PCA selection', { path: shot1, contentType: 'image/png' });
+  steps.push(stepResult(semanticScenario.steps[0], {
+    selectedLabel,
+    sourceLabel,
+    semanticTitle,
+    explanationText,
+    externalFallbackVisible: false
+  }, [
+    check('Selected text', 'Selected: “PCA”', selectedLabel, selectedLabel.includes('Selected: “PCA”')),
+    check('Resolver priority', 'Diderot · api', sourceLabel, sourceLabel.includes('Diderot · api')),
+    check('Semantic title', 'PCA', semanticTitle, semanticTitle === 'PCA'),
+    check('Bounded intuition', 'unsupervised linear projection', explanationText, explanationText.includes('unsupervised linear projection')),
+    check('Internet fallback hidden', false, false, true)
+  ], semanticScenario.steps[0].screenshot));
+
+  const apiResponse = await request.post('/api/semantic/v1/resolve', {
+    headers: { 'content-type': 'application/json' },
+    data: { text: 'PCA', context: 'Study 0 PCA 128D route', slideId: 'mission', elementType: 'text' }
+  });
+  expect(apiResponse.ok()).toBeTruthy();
+  const apiBody = await apiResponse.json();
+  steps.push(stepResult(semanticScenario.steps[1], {
+    status: apiBody.status,
+    semanticId: apiBody.semantic?.id,
+    sourceTier: apiBody.knowledge?.source?.tier,
+    fallbackRequired: apiBody.fallback?.required
+  }, [
+    check('Resolution status', 'resolved', apiBody.status, apiBody.status === 'resolved'),
+    check('Semantic id', 'concept:pca', apiBody.semantic?.id, apiBody.semantic?.id === 'concept:pca'),
+    check('Knowledge source', 'diderot', apiBody.knowledge?.source?.tier, apiBody.knowledge?.source?.tier === 'diderot'),
+    check('Fallback required', false, apiBody.fallback?.required, apiBody.fallback?.required === false)
+  ]));
+
+  await page.evaluate(async () => globalThis.__IEP_TELEMETRY_FLUSH__?.());
+  const rootEnd = nowNs();
+  const rootResponse = await request.post('/v1/traces', {
+    headers: { 'content-type': 'application/json' },
+    data: rootSpanEnvelope({
+      traceId,
+      rootSpanId,
+      startTimeUnixNano: rootStart,
+      endTimeUnixNano: rootEnd,
+      testId: semanticContract.testId,
+      rootName: semanticContract.root.name
+    })
+  });
+  expect(rootResponse.ok()).toBeTruthy();
+
+  const bundle = await pollEvidence(request, rootSpanId, 1 + semanticContract.spans.length);
+  const validation = validateTelemetry(bundle, semanticContract);
+  const comparison = comparisonText(validation);
+  steps.push(stepResult(semanticScenario.steps[2], {
+    entrySpanId: validation.entrySpanId,
+    traceId: validation.traceId,
+    telemetrySummary: validation.summary,
+    bundleSummary: bundle.summary,
+    validatorStatus: validation.status
+  }, [
+    check('Telemetry contract', 'PASS', validation.status, validation.status === 'PASS'),
+    check('Expected span count', 1 + semanticContract.spans.length, bundle.summary.spanCount, bundle.summary.spanCount === 1 + semanticContract.spans.length),
+    check('Error logs', 0, validation.checks.find((item) => item.kind === 'error-logs')?.actual, validation.checks.find((item) => item.kind === 'error-logs')?.status === 'PASS')
+  ]));
+
+  const result = {
+    schemaVersion: '1.0',
+    scenario: semanticScenario,
+    execution: {
+      framework: 'Playwright',
+      project: testInfo.project.name,
+      targetCommit: process.env.GITHUB_SHA ?? 'local',
+      startedAtUnixNano: rootStart,
+      endedAtUnixNano: rootEnd,
+      traceId,
+      rootSpanId
+    },
+    verdict: steps.every((step) => step.status === 'PASS') && validation.status === 'PASS' ? 'PASS' : 'FAIL',
+    steps,
+    telemetry: { contract: semanticContract, validation, bundle }
+  };
+
+  await persistScenarioEvidence({ evidenceDir, result, bundle, validation, comparison, testInfo });
 
   expect(result.verdict, JSON.stringify(steps.filter((step) => step.status === 'FAIL'), null, 2)).toBe('PASS');
   expect(validation.status, comparison).toBe('PASS');
