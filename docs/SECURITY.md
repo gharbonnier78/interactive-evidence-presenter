@@ -16,6 +16,7 @@ The baseline uses OWASP Top 10:2025 for awareness and OWASP ASVS 5.0 Level 1 as 
 - no secret or long-lived cloud key is expected in the repository; Google Cloud deployment is designed for Workload Identity Federation/OIDC;
 - container runs as the unprivileged `node` user;
 - runtime image is pinned to the current Node 22 LTS patch line and an explicit Alpine release rather than an old floating base;
+- npm, npx, Corepack and Yarn are removed from the runtime image because this service performs no package installation at runtime; this reduces unused supply-chain and executable surface;
 - CodeQL, gitleaks and Trivy checks are defined in GitHub Actions;
 - all runtime CDN dependencies are version-pinned.
 
