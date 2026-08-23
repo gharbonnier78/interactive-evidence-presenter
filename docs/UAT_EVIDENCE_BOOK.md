@@ -25,7 +25,10 @@ Each qualification scenario has a versioned JSON definition under `e2e/scenarios
 - actor and preconditions;
 - activity-flow elements and their expected telemetry spans;
 - a sequence view describing interactions among actor, UI, evidence model, telemetry and evidence API;
+- for every material sequence interaction, the expected response/outcome that makes the interaction testable;
 - ordered steps with action, expected outcomes and planned screenshot names.
+
+The sequence view is a **pre-execution behavioral specification**, not merely an architecture picture. A request/action without its expected response is incomplete for UAT purposes. Expected outcomes may include a UI state, returned business value, claim/status, protocol result, required span/log/metric signal, or evidence-retrieval result. The later execution section records what actually happened and compares it with these declared expectations.
 
 The Playwright test records actual values and explicit check verdicts into `result.json`. Expected values are not learned from the runtime implementation after execution.
 
@@ -37,7 +40,7 @@ The Playwright test records actual values and explicit check verdicts into `resu
 - `uat-report/Interactive-Evidence-Presenter-UAT-Evidence-Book.pdf` — printable review version;
 - `uat-report/summary.json` — machine-readable overall summary.
 
-The report embeds lightweight activity and sequence diagrams from the scenario definition. It presents each step with action, expected results, actual results, verdict and screenshot. It then presents the full OpenTelemetry expected-versus-actual contract table, including SpanId/TraceId correlation, logs and metric exemplars.
+The report embeds lightweight activity and sequence diagrams from the scenario definition. The sequence diagram carries the declared expected result on the interaction itself. It presents each executed step with action, expected results, actual results, verdict and screenshot. It then presents the full OpenTelemetry expected-versus-actual contract table, including SpanId/TraceId correlation, logs and metric exemplars.
 
 ## Evidence integrity and retention
 
