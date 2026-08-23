@@ -1,0 +1,67 @@
+{
+  "testId": "E2E-REFERENCE-001",
+  "root": {
+    "name": "test.e2e.reference_evidence_navigation",
+    "attributes": {
+      "test.framework": "playwright",
+      "test.id": "E2E-REFERENCE-001"
+    }
+  },
+  "allowUnexpectedSpans": false,
+  "spans": [
+    {
+      "name": "GET /",
+      "parent": "$root",
+      "kind": 2,
+      "attributes": {
+        "http.request.method": "GET",
+        "url.path": "/",
+        "http.response.status_code": 200
+      }
+    },
+    {
+      "name": "iep.presenter.open",
+      "parent": "$root",
+      "attributes": {
+        "iep.slide.id": "mission"
+      }
+    },
+    {
+      "name": "iep.evidence.render",
+      "parent": "$root",
+      "attributes": {
+        "iep.claim.id": "C-NI-001",
+        "iep.claim.status": "NOT_DEMONSTRATED"
+      }
+    },
+    {
+      "name": "iep.slide.navigate",
+      "parent": "$root",
+      "attributes": {
+        "iep.slide.from": "mission",
+        "iep.slide.to": "study0",
+        "iep.navigation.action": "next"
+      }
+    },
+    {
+      "name": "iep.concept.open",
+      "parent": "$root",
+      "attributes": {
+        "iep.concept.id": "pca",
+        "iep.concept.name": "PCA",
+        "iep.claim.id": "C-NI-001"
+      }
+    }
+  ],
+  "logs": [
+    { "eventName": "iep.presenter.opened", "span": "iep.presenter.open", "severityNumber": 9 },
+    { "eventName": "iep.evidence.rendered", "span": "iep.evidence.render", "severityNumber": 9 },
+    { "eventName": "iep.slide.navigated", "span": "iep.slide.navigate", "severityNumber": 9 },
+    { "eventName": "iep.concept.opened", "span": "iep.concept.open", "severityNumber": 9 }
+  ],
+  "metrics": [
+    { "name": "iep.interaction.duration", "span": "iep.slide.navigate", "unit": "s", "max": 1 },
+    { "name": "iep.interaction.duration", "span": "iep.concept.open", "unit": "s", "max": 1 }
+  ],
+  "forbidLogsAtOrAboveSeverity": 17
+}
