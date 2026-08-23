@@ -58,24 +58,20 @@ Generated suites start as a **non-blocking experimental lane**. They may become 
 
 ## Reporting now
 
-Playwright produces two artifacts in CI:
+Playwright produces an HTML report and JSON result file. Failures retain Playwright trace, screenshot and video artifacts. The reference E2E additionally attaches:
 
-- HTML report for human review;
-- JSON result file for later aggregation.
+- the recovered OpenTelemetry evidence bundle;
+- machine-readable expected-vs-actual telemetry validation;
+- a human-readable expected-vs-actual comparison.
 
-Failures retain Playwright trace, screenshot and video artifacts. This is sufficient for the MVP; Allure is intentionally deferred until cross-framework/campaign history justifies the extra reporting layer.
+Allure is intentionally deferred until cross-framework/campaign history justifies the extra reporting layer.
 
-## Telemetry evolution
+## OpenTelemetry evidence now
 
-For now, evaluation data should remain explicit JSON/artifact evidence. A later OpenTelemetry mapping can promote stable concepts such as:
+OpenTelemetry is already part of the **reference E2E evidence mechanism**, not merely a future dashboard concern. `docs/TELEMETRY_EVIDENCE.md` defines the implemented path:
 
-- `test.generated`;
-- `test.executed`;
-- `test.failed`;
-- `test.flaky`;
-- `test.human_corrected`;
-- `defect.detected`;
-- `generator.duration`;
-- `generator.cost`.
+`UML activity model -> expected telemetry topology -> Playwright execution -> OTLP traces/logs/metrics -> GET spanId evidence bundle -> expected-vs-actual validation -> Playwright report attachment`.
 
-Do not add a Collector/backend merely to claim observability. Add OpenTelemetry when there is a concrete dashboard/correlation question that CI artifacts no longer answer well.
+The current in-memory test receiver is intentionally bounded and exists only under `EVIDENCE_TEST_MODE=1`. It proves signal format, parent/child topology, TraceId/SpanId correlation, LogRecord correlation and metric exemplar correlation without introducing a production telemetry backend merely for ceremony.
+
+A later phase may additionally represent test-generator evaluation events such as `test.generated`, `test.human_corrected`, `defect.detected`, `generator.duration` and `generator.cost`. Those events should be added only when their semantic definitions and dashboard/comparison questions are stable enough to justify them.
