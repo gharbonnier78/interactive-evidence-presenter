@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import contract from './contracts/E2E-REFERENCE-001.json' with { type: 'json' };
+import scenario from './scenarios/E2E-REFERENCE-001.json' with { type: 'json' };
 import { makeTraceId, makeSpanId, nowNs, rootSpanEnvelope, validateTelemetry, pollEvidence } from './telemetry-evidence.mjs';
 
 function comparisonText(validation) {
@@ -19,10 +22,30 @@ function comparisonText(validation) {
   ].join('\n');
 }
 
+function check(label, expected, actual, pass) {
+  return { label, expected, actual, status: pass ? 'PASS' : 'FAIL' };
+}
+
+function stepResult(definition, actual, checks, screenshot = null) {
+  return {
+    id: definition.id,
+    title: definition.title,
+    action: definition.action,
+    expected: definition.expected,
+    actual,
+    checks,
+    screenshot,
+    status: checks.every((item) => item.status === 'PASS') ? 'PASS' : 'FAIL'
+  };
+}
+
 test('reference evidence navigation remains grounded and telemetry-complete', async ({ page, request }, testInfo) => {
   const traceId = makeTraceId();
   const rootSpanId = makeSpanId();
   const rootStart = nowNs();
+  const evidenceDir = join('test-results', 'uat-evidence', scenario.id);
+  await mkdir(evidenceDir, { recursive: true });
+  const steps = [];
 
   const reset = await request.post('/api/evidence/v1/reset');
   expect(reset.ok()).toBeTruthy();
@@ -34,16 +57,46 @@ test('reference evidence navigation remains grounded and telemetry-complete', as
 
   await page.goto('/');
 
-  await expect(page).toHaveTitle(/Interactive Evidence Presenter/);
-  await expect(page.locator('#evidence-copy')).toContainText('C-NI-001: NOT_DEMONSTRATED');
-  await expect(page.locator('#evidence-copy')).toContainText('did not demonstrate non-inferiority');
+  const title = await page.title();
+  const evidenceText = await page.locator('#evidence-copy').innerText();
+  const shot1 = join(evidenceDir, scenario.steps[0].screenshot);
+  await page.screenshot({ path: shot1, fullPage: true });
+  await testInfo.attach('UAT S1 - Open presenter', { path: shot1, contentType: 'image/png' });
+  steps.push(stepResult(scenario.steps[0], {
+    pageTitle: title,
+    evidenceText
+  }, [
+    check('Application title', 'Interactive Evidence Presenter', title, /Interactive Evidence Presenter/.test(title)),
+    check('Claim status', 'C-NI-001: NOT_DEMONSTRATED', evidenceText, evidenceText.includes('C-NI-001: NOT_DEMONSTRATED')),
+    check('Inferential wording', 'did not demonstrate non-inferiority', evidenceText, evidenceText.includes('did not demonstrate non-inferiority'))
+  ], scenario.steps[0].screenshot));
 
   await page.getByRole('button', { name: /Next/ }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Compression did not demonstrate non-inferiority');
+  const heading = await page.getByRole('heading', { level: 1 }).innerText();
+  const shot2 = join(evidenceDir, scenario.steps[1].screenshot);
+  await page.screenshot({ path: shot2, fullPage: true });
+  await testInfo.attach('UAT S2 - Study 0', { path: shot2, contentType: 'image/png' });
+  steps.push(stepResult(scenario.steps[1], {
+    heading,
+    expectedTelemetry: 'iep.slide.navigate mission -> study-0 action=next'
+  }, [
+    check('Study 0 heading', 'Compression did not demonstrate non-inferiority', heading, heading.includes('Compression did not demonstrate non-inferiority'))
+  ], scenario.steps[1].screenshot));
 
   await page.getByRole('button', { name: 'PCA' }).click();
-  await expect(page.locator('#concept-title')).toHaveText('PCA');
-  await expect(page.locator('#emma-copy')).toContainText('unsupervised linear projection');
+  const conceptTitle = await page.locator('#concept-title').innerText();
+  const emmaText = await page.locator('#emma-copy').innerText();
+  const shot3 = join(evidenceDir, scenario.steps[2].screenshot);
+  await page.screenshot({ path: shot3, fullPage: true });
+  await testInfo.attach('UAT S3 - PCA concept', { path: shot3, contentType: 'image/png' });
+  steps.push(stepResult(scenario.steps[2], {
+    conceptTitle,
+    emmaText,
+    expectedClaimLink: 'C-NI-001'
+  }, [
+    check('Concept title', 'PCA', conceptTitle, conceptTitle === 'PCA'),
+    check('Emma PCA wording', 'unsupervised linear projection', emmaText, emmaText.includes('unsupervised linear projection'))
+  ], scenario.steps[2].screenshot));
 
   await page.evaluate(async () => globalThis.__IEP_TELEMETRY_FLUSH__?.());
   const rootEnd = nowNs();
@@ -56,12 +109,52 @@ test('reference evidence navigation remains grounded and telemetry-complete', as
   const bundle = await pollEvidence(request, rootSpanId, 1 + contract.spans.length);
   const validation = validateTelemetry(bundle, contract);
   const comparison = comparisonText(validation);
+  const telemetryStep = scenario.steps[3];
+  steps.push(stepResult(telemetryStep, {
+    entrySpanId: validation.entrySpanId,
+    traceId: validation.traceId,
+    telemetrySummary: validation.summary,
+    bundleSummary: bundle.summary,
+    validatorStatus: validation.status
+  }, [
+    check('Telemetry contract', 'PASS', validation.status, validation.status === 'PASS'),
+    check('Expected span count', 1 + contract.spans.length, bundle.summary.spanCount, bundle.summary.spanCount === 1 + contract.spans.length),
+    check('Error logs', 0, validation.checks.find((item) => item.kind === 'error-logs')?.actual, validation.checks.find((item) => item.kind === 'error-logs')?.status === 'PASS')
+  ]));
+
+  const result = {
+    schemaVersion: '1.0',
+    scenario,
+    execution: {
+      framework: 'Playwright',
+      project: testInfo.project.name,
+      targetCommit: process.env.GITHUB_SHA ?? 'local',
+      startedAtUnixNano: rootStart,
+      endedAtUnixNano: rootEnd,
+      traceId,
+      rootSpanId
+    },
+    verdict: steps.every((step) => step.status === 'PASS') && validation.status === 'PASS' ? 'PASS' : 'FAIL',
+    steps,
+    telemetry: {
+      contract,
+      validation,
+      bundle
+    }
+  };
+
+  await writeFile(join(evidenceDir, 'result.json'), JSON.stringify(result, null, 2));
+  await writeFile(join(evidenceDir, 'otel-evidence-bundle.json'), JSON.stringify(bundle, null, 2));
+  await writeFile(join(evidenceDir, 'otel-validation.json'), JSON.stringify(validation, null, 2));
+  await writeFile(join(evidenceDir, 'otel-expected-vs-actual.txt'), comparison);
 
   console.log(`\n${comparison}\n`);
-  await testInfo.attach('otel-evidence-bundle.json', { body: Buffer.from(JSON.stringify(bundle, null, 2)), contentType: 'application/json' });
-  await testInfo.attach('otel-validation.json', { body: Buffer.from(JSON.stringify(validation, null, 2)), contentType: 'application/json' });
-  await testInfo.attach('otel-expected-vs-actual.txt', { body: Buffer.from(comparison), contentType: 'text/plain' });
+  await testInfo.attach('uat-scenario-result.json', { path: join(evidenceDir, 'result.json'), contentType: 'application/json' });
+  await testInfo.attach('otel-evidence-bundle.json', { path: join(evidenceDir, 'otel-evidence-bundle.json'), contentType: 'application/json' });
+  await testInfo.attach('otel-validation.json', { path: join(evidenceDir, 'otel-validation.json'), contentType: 'application/json' });
+  await testInfo.attach('otel-expected-vs-actual.txt', { path: join(evidenceDir, 'otel-expected-vs-actual.txt'), contentType: 'text/plain' });
 
+  expect(result.verdict, JSON.stringify(steps.filter((step) => step.status === 'FAIL'), null, 2)).toBe('PASS');
   expect(validation.status, comparison).toBe('PASS');
 });
 
