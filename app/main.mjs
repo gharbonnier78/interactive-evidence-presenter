@@ -5,6 +5,7 @@ import { startGestureRecognition } from './mediapipe.mjs';
 import { createTelemetry } from './telemetry.mjs';
 
 const telemetry = createTelemetry();
+const runtimeMode = document.querySelector('meta[name="iep-runtime-mode"]')?.content ?? 'api-preferred';
 const $ = (selector) => document.querySelector(selector);
 const els = {
   stage: $('#presentation-stage'),
@@ -129,7 +130,35 @@ async function initChart() {
   if (result.reason) els.chartBackend.title = result.reason;
 }
 
+function localStaticResult(query, depth) {
+  const resolution = resolveSemanticSelection(query);
+  return {
+    resolution,
+    explanation: renderBoundedExplanation(resolution, depth),
+    transport: 'local-static-preview'
+  };
+}
+
+function apiErrorResult(query, depth, error) {
+  const resolution = {
+    schemaVersion: '1.1',
+    query,
+    status: 'error',
+    semantic: null,
+    knowledge: null,
+    fallback: { required: false, nextTier: null }
+  };
+  return {
+    resolution,
+    explanation: renderBoundedExplanation(resolution, depth),
+    transport: 'api-error',
+    error: error instanceof Error ? error.message : String(error)
+  };
+}
+
 async function resolveThroughService(query, depth = 'intuition') {
+  if (runtimeMode === 'static-preview') return localStaticResult(query, depth);
+
   try {
     const response = await fetch('/api/explanations/v1/render', {
       method: 'POST',
@@ -139,14 +168,10 @@ async function resolveThroughService(query, depth = 'intuition') {
     });
     if (!response.ok) throw new Error(`resolver API ${response.status}`);
     const body = await response.json();
+    if (!body?.resolution || !body?.explanation) throw new Error('resolver API malformed response');
     return { ...body, transport: 'api' };
-  } catch {
-    const resolution = resolveSemanticSelection(query);
-    return {
-      resolution,
-      explanation: renderBoundedExplanation(resolution, depth),
-      transport: 'local-static-preview'
-    };
+  } catch (error) {
+    return apiErrorResult(query, depth, error);
   }
 }
 
@@ -154,6 +179,15 @@ function renderSemanticResult(result, selectedText) {
   const { resolution, explanation, transport } = result;
   lastSemanticResolution = resolution;
   setText(els.selectionText, `Selected: “${selectedText}”`);
+
+  if (resolution.status === 'error') {
+    setText(els.conceptTitle, 'Resolver unavailable');
+    setText(els.conceptCopy, explanation.text);
+    setText(els.selectionSource, 'API error');
+    els.selectionSource.className = 'source-pill api-error';
+    els.externalFallback.hidden = true;
+    return;
+  }
 
   if (resolution.status === 'resolved') {
     setText(els.conceptTitle, explanation.title);
@@ -187,13 +221,15 @@ async function resolveInteractiveSelection(query, depth = 'intuition') {
     'iep.slide.id': query.slideId ?? SLIDES[slideIndex].id
   });
   const result = await resolveThroughService(lastSemanticQuery, depth);
+  const source = result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none';
   resolveSpan.end({
-    eventName: 'iep.semantic.resolved',
+    eventName: result.resolution.status === 'error' ? 'iep.semantic.failed' : 'iep.semantic.resolved',
     eventBody: `Semantic selection ${selectedText}`,
+    statusCode: result.resolution.status === 'error' ? 2 : 1,
     extraAttributes: {
       'iep.semantic.status': result.resolution.status,
       'iep.semantic.id': result.resolution.semantic?.id ?? 'unresolved',
-      'iep.resolver.source': result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none',
+      'iep.resolver.source': source,
       'iep.resolver.transport': result.transport
     }
   });
@@ -201,10 +237,14 @@ async function resolveInteractiveSelection(query, depth = 'intuition') {
   const explanationSpan = telemetry.startSpan('iep.explanation.render', {
     'iep.semantic.id': result.resolution.semantic?.id ?? 'unresolved',
     'iep.explanation.depth': depth,
-    'iep.resolver.source': result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none'
+    'iep.resolver.source': source
   });
   renderSemanticResult(result, selectedText);
-  explanationSpan.end({ eventName: 'iep.explanation.rendered', eventBody: `Explanation rendered for ${selectedText}` });
+  explanationSpan.end({
+    eventName: result.resolution.status === 'error' ? 'iep.explanation.failed' : 'iep.explanation.rendered',
+    eventBody: `Explanation rendered for ${selectedText}`,
+    statusCode: result.resolution.status === 'error' ? 2 : 1
+  });
   return result;
 }
 
@@ -214,7 +254,7 @@ function selectionContext(selection) {
   const node = range.commonAncestorContainer;
   const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
   if (!element || !els.stage.contains(element)) return '';
-  const container = element.closest('.slide-copy,.chart-card') ?? element;
+  const container = element.closest('p,h1,h2,button,.caption,.lead,.eyebrow') ?? element.closest('.slide-copy,.chart-card') ?? element;
   return String(container.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 500);
 }
 
@@ -252,13 +292,18 @@ async function handleChartPick(event) {
 async function renderLastDepth(depth) {
   if (!lastSemanticQuery || !lastSemanticResolution) return;
   const result = await resolveThroughService(lastSemanticQuery, depth);
+  const source = result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none';
   const span = telemetry.startSpan('iep.explanation.render', {
     'iep.semantic.id': result.resolution.semantic?.id ?? 'unresolved',
     'iep.explanation.depth': depth,
-    'iep.resolver.source': result.resolution.knowledge?.source?.tier ?? result.resolution.fallback?.nextTier ?? 'none'
+    'iep.resolver.source': source
   });
   renderSemanticResult(result, lastSemanticQuery.text);
-  span.end({ eventName: 'iep.explanation.rendered', eventBody: `Explanation depth ${depth}` });
+  span.end({
+    eventName: result.resolution.status === 'error' ? 'iep.explanation.failed' : 'iep.explanation.rendered',
+    eventBody: `Explanation depth ${depth}`,
+    statusCode: result.resolution.status === 'error' ? 2 : 1
+  });
 }
 
 async function startCamera() {
