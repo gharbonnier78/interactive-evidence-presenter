@@ -20,3 +20,27 @@ jobs:
           for i in {1..20}; do curl -fsS http://127.0.0.1:18080/healthz && exit 0; sleep 1; done
           docker logs iep-smoke
           exit 1
+
+  e2e-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.16.0'
+      - name: Install pinned test dependency
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Run reference Playwright suite
+        run: npm run test:e2e
+      - name: Upload Playwright report and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-reference-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
