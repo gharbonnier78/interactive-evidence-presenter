@@ -15,6 +15,7 @@ The baseline uses OWASP Top 10:2025 for awareness and OWASP ASVS 5.0 Level 1 as 
 - MediaPipe is optional, on-device, and mapped to three bounded commands;
 - no secret or long-lived cloud key is expected in the repository; Google Cloud deployment is designed for Workload Identity Federation/OIDC;
 - container runs as the unprivileged `node` user;
+- runtime image is pinned to the current Node 22 LTS patch line and an explicit Alpine release rather than an old floating base;
 - CodeQL, gitleaks and Trivy checks are defined in GitHub Actions;
 - all runtime CDN dependencies are version-pinned.
 
@@ -22,8 +23,10 @@ The baseline uses OWASP Top 10:2025 for awareness and OWASP ASVS 5.0 Level 1 as 
 
 TypeGPU and MediaPipe are currently loaded as exact-version browser ESM modules from jsDelivr, and the MediaPipe model is fetched from Google storage. ESM imports do not provide Subresource Integrity. This is accepted for the bounded MVP but is a supply-chain exposure; before a stronger production profile, bundle/vendor dependencies in the build, generate an SBOM, lock hashes/digests, and narrow CSP to self-hosted assets.
 
+The container image tag pins a patch version but not an immutable registry digest. A stronger profile should pin the verified image digest and automate controlled dependency refreshes.
+
 Web Speech recognition, when enabled by the browser, may use browser/vendor services. It is optional and must not be used for secrets or sensitive conference material without an approved deployment profile.
 
 ## Checks
 
-`npm run verify` performs local syntax/policy/unit checks. GitHub Actions adds CodeQL, secret scanning and Trivy filesystem/container scanning. A security finding is not waived by the label “MVP”; it is either fixed, documented as not applicable, or explicitly accepted with scope and expiry.
+`npm run verify` performs local syntax/policy/unit checks. GitHub Actions adds CodeQL, secret scanning, Trivy filesystem/container scanning and the Playwright browser reference suite. A security finding is not waived by the label “MVP”; it is either fixed, documented as not applicable, or explicitly accepted with scope and expiry.
