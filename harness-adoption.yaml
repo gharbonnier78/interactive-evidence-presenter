@@ -3,7 +3,7 @@ project: interactive-evidence-presenter
 profile: MVP
 harness:
   repository: gharbonnier78/scientific-research-harness
-  ref_policy: pin exact merge commit after engineering-care-profile is merged
+  ref: 444ec2cba7f24fee7333804601cd0c86f32ef27b
 authoritative_sources:
   - repository: gharbonnier78/siamese-embedding-compression-lab
     artifact: STUDY0_FINAL_REPORT.md
